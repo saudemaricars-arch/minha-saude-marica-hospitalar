@@ -1,11 +1,12 @@
-
 export interface ModuleItem {
   id: string;
   title: string;
   count: number; // Represents functionality counter or active items
-  category: 'admin' | 'clinical' | 'emergency' | 'monitoring';
+  category: ModuleCategory;
   iconName: string;
 }
+
+export type ModuleCategory = 'admin' | 'clinical' | 'emergency' | 'monitoring' | 'master_analysis';
 
 export interface Patient {
   id: string;

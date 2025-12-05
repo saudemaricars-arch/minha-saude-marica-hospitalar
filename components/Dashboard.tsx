@@ -25,6 +25,8 @@ import AdminIndicatorsModule from './modules/AdminIndicatorsModule';
 import NeonatalScreeningModule from './modules/clinical/NeonatalScreeningModule';
 import MaternityVisitModule from './modules/clinical/MaternityVisitModule';
 import VaccinationModule from './modules/clinical/VaccinationModule';
+import MasterAnalysisModule from './modules/MasterAnalysisModule';
+import MasterUnitMonitor from './modules/MasterUnitMonitor';
 import UserSettings from './UserSettings';
 
 interface DashboardProps {
@@ -46,6 +48,18 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, currentUnit, onSwitchUn
   if (!currentUnit) return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
 
   const filteredModules = MODULES_DATA.filter(m => {
+    // 1. Accessibility Control
+    const isMasterUser = currentUnit.id === 'master' || currentUnit.id === '00000000-0000-0000-0000-000000000000';
+
+    // STRICT MASTER FILTERING: Master only sees 'master_analysis' modules
+    if (isMasterUser) {
+      return m.category === 'master_analysis';
+    }
+
+    // STRICT REGULAR FILTERING: Regular users NEVER see 'master_analysis' modules
+    if (m.category === 'master_analysis') return false;
+
+    // 2. Filter Logic
     const matchesFilter = activeFilter === 'all' || m.category === activeFilter;
     const matchesSearch = m.title.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesFilter && matchesSearch;
@@ -67,13 +81,23 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, currentUnit, onSwitchUn
 
   const handleModuleClick = (moduleId: string) => {
     // Whitelist active modules
-    if (['1', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20'].includes(moduleId)) {
+    const whitelist = ['1', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20'];
+    // Allow master unit modules (dynamic IDs starting with master_unit_)
+    const isMasterModule = moduleId.startsWith('master_unit_');
+
+    if (whitelist.includes(moduleId) || isMasterModule) {
       setActiveModuleId(moduleId);
       setShowSettings(false); // Ensure settings is closed when module opens
     } else {
       alert("Módulo em desenvolvimento. Por favor, acesse os módulos principais já implementados.");
     }
   };
+
+  // Helper to determine user display name
+  const isMasterUser = currentUnit.id === 'master' || currentUnit.id === '00000000-0000-0000-0000-000000000000';
+  const userDisplayName = isMasterUser ? 'Gestor Central' : 'Dr. Silva';
+  const userDisplayRole = isMasterUser ? 'Secretaria de Saúde' : 'Diretor Clínico';
+  const userInitials = isMasterUser ? 'GC' : 'DS';
 
   // State for real-time dashboard stats
   const [stats, setStats] = useState({
@@ -91,29 +115,48 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, currentUnit, onSwitchUn
         console.log('Fetching dashboard stats for unit:', currentUnit.id);
 
         // 1. Active Patients (Emergency Visits not discharged)
-        const { count: patientCount, error: patientError } = await supabase
+        // 1. Active Patients (Emergency Visits not discharged)
+        let visitedQuery = supabase
           .from('emergency_visits')
           .select('*', { count: 'exact', head: true })
-          .eq('unit_id', currentUnit.id)
           .neq('status', 'alta');
+
+        // Only filter by unit if NOT master
+        if (currentUnit.id !== 'master' && currentUnit.id !== '00000000-0000-0000-0000-000000000000') {
+          visitedQuery = visitedQuery.eq('unit_id', currentUnit.id);
+        }
+
+        const { count: patientCount, error: patientError } = await visitedQuery;
 
         if (patientError) console.error('Error fetching patients:', patientError);
 
         // 2. Occupied Beds
-        const { count: bedCount, error: bedError } = await supabase
+        // 2. Occupied Beds
+        let bedsQuery = supabase
           .from('beds')
           .select('*', { count: 'exact', head: true })
-          .eq('unit_id', currentUnit.id)
           .eq('status', 'ocupado');
+
+        if (currentUnit.id !== 'master' && currentUnit.id !== '00000000-0000-0000-0000-000000000000') {
+          bedsQuery = bedsQuery.eq('unit_id', currentUnit.id);
+        }
+
+        const { count: bedCount, error: bedError } = await bedsQuery;
 
         if (bedError) console.error('Error fetching beds:', bedError);
 
         // 3. Waiting Triage
-        const { count: triageCount, error: triageError } = await supabase
+        // 3. Waiting Triage
+        let triageQuery = supabase
           .from('emergency_visits')
           .select('*', { count: 'exact', head: true })
-          .eq('unit_id', currentUnit.id)
           .eq('status', 'aguardando_triagem');
+
+        if (currentUnit.id !== 'master' && currentUnit.id !== '00000000-0000-0000-0000-000000000000') {
+          triageQuery = triageQuery.eq('unit_id', currentUnit.id);
+        }
+
+        const { count: triageCount, error: triageError } = await triageQuery;
 
         if (triageError) console.error('Error fetching triage:', triageError);
 
@@ -170,6 +213,19 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, currentUnit, onSwitchUn
     if (activeModuleId === '19') return <VaccinationModule onBack={() => setActiveModuleId(null)} />;
     // Maternity Visit
     if (activeModuleId === '20') return <MaternityVisitModule onBack={() => setActiveModuleId(null)} />;
+    // Master Analysis (Global) - Removed
+    // if (activeModuleId === '99') return <MasterAnalysisModule onBack={() => setActiveModuleId(null)} />;
+
+    // Master Unit Analysis (Dynamic)
+    if (activeModuleId.startsWith('master_unit_')) {
+      // Extract unit ID from module ID (e.g. 'master_unit_1' -> '1')
+      const targetUnitId = activeModuleId.replace('master_unit_', '');
+      const targetUnit = HEALTH_UNITS.find(u => u.id === targetUnitId);
+
+      if (targetUnit) {
+        return <MasterUnitMonitor unit={targetUnit} onBack={() => setActiveModuleId(null)} />;
+      }
+    }
 
     return null;
   };
@@ -193,8 +249,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, currentUnit, onSwitchUn
                   className="h-6 w-auto object-contain"
                 />
               </div>
-              <div className="h-6 w-px bg-gray-300 hidden md:block"></div>
-              <div className="text-sm font-medium text-gray-600 hidden md:block">
+              <div className={`h-6 w-px hidden md:block ${currentUnit.id === 'master' ? 'bg-red-400' : 'bg-gray-300'}`}></div>
+              <div className={`text-sm font-medium hidden md:block ${currentUnit.id === 'master' ? 'text-red-700 font-bold' : 'text-gray-600'}`}>
                 {currentUnit.name}
               </div>
             </div>
@@ -202,11 +258,11 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, currentUnit, onSwitchUn
             <div className="flex items-center gap-4">
               <button onClick={() => { setActiveModuleId(null); setShowSettings(true); }} className="flex items-center gap-3 hover:bg-gray-50 p-1 rounded-lg transition-colors group">
                 <div className="text-right hidden md:block">
-                  <p className="text-sm font-semibold text-gray-800 group-hover:text-red-700 transition-colors">Dr. Silva</p>
-                  <p className="text-xs text-gray-500">Admin</p>
+                  <p className="text-sm font-semibold text-gray-800 group-hover:text-red-700 transition-colors">{userDisplayName}</p>
+                  <p className="text-xs text-gray-500">{userDisplayRole}</p>
                 </div>
                 <div className="h-9 w-9 rounded-full bg-red-100 flex items-center justify-center text-red-700 font-bold border-2 border-transparent group-hover:border-red-200">
-                  DS
+                  {userInitials}
                 </div>
               </button>
             </div>
@@ -237,93 +293,105 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, currentUnit, onSwitchUn
 
             <div className="h-8 w-px bg-gray-300 hidden md:block"></div>
 
-            {/* Unit Dropdown */}
+            {/* Unit Dropdown - Only for Master */}
             <div className="relative">
-              <button
-                onClick={() => setShowUnitMenu(!showUnitMenu)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors text-gray-700 text-sm font-medium border border-transparent hover:border-gray-200"
-              >
-                <Icons.Building className="w-4 h-4 text-red-600" />
-                <span className="max-w-[150px] truncate">{currentUnit.name}</span>
-                <Icons.ChevronDown className="w-3 h-3 text-gray-400" />
-              </button>
-
-              {showUnitMenu && (
-                <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-100 py-1 z-50">
-                  <div className="px-4 py-2 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase">
-                    Trocar Unidade
-                  </div>
-                  {HEALTH_UNITS.map((unit) => (
+              {/* 
+                  Check if user is master (either 'master' ID or the specific UUID).
+                  Only Master can switch units.
+                */}
+              {(() => {
+                const isMaster = currentUnit.id === 'master' || currentUnit.id === '00000000-0000-0000-0000-000000000000';
+                return (
+                  <>
                     <button
-                      key={unit.id}
-                      onClick={() => {
-                        onSwitchUnit(unit);
-                        setShowUnitMenu(false);
-                      }}
-                      className={`w-full text-left px-4 py-2.5 text-sm hover:bg-red-50 hover:text-red-700 transition-colors flex items-center justify-between ${currentUnit.id === unit.id ? 'bg-red-50 text-red-700 font-medium' : 'text-gray-700'}`}
+                      onClick={() => isMaster && setShowUnitMenu(!showUnitMenu)}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-colors text-gray-700 text-sm font-medium border border-transparent 
+                          ${isMaster ? 'hover:bg-gray-100 hover:border-gray-200 cursor-pointer' : 'cursor-default opacity-90'}`}
                     >
-                      <span>{unit.name}</span>
-                      {currentUnit.id === unit.id && (
-                        <div className="w-1.5 h-1.5 rounded-full bg-red-600"></div>
-                      )}
+                      <Icons.Building className="w-4 h-4 text-red-600" />
+                      <span className="max-w-[150px] truncate">{currentUnit.name}</span>
+                      {isMaster && <Icons.ChevronDown className="w-3 h-3 text-gray-400" />}
                     </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
 
-          {/* Global Search Bar */}
-          <div className="flex-1 max-w-xl mx-4 lg:mx-8 hidden sm:block">
-            <div className="relative group">
-              <span className="absolute left-4 top-3 text-gray-400 group-focus-within:text-red-500 transition-colors">
-                <Icons.Search className="w-5 h-5" />
-              </span>
-              <input
-                type="text"
-                placeholder="Busque por módulos ou use IA..."
-                className="w-full pl-12 pr-4 py-2.5 bg-gray-100 border-none rounded-full focus:ring-2 focus:ring-red-500 focus:bg-white transition-all text-sm outline-none"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyDown={handleKeyDown}
-              />
+                    {showUnitMenu && isMaster && (
+                      <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-100 py-1 z-50">
+                        <div className="px-4 py-2 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase">
+                          Trocar Unidade
+                        </div>
+                        {HEALTH_UNITS.map((unit) => (
+                          <button
+                            key={unit.id}
+                            onClick={() => {
+                              onSwitchUnit(unit);
+                              setShowUnitMenu(false);
+                            }}
+                            className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${currentUnit.id === unit.id ? 'text-red-600 bg-red-50 font-medium' : 'text-gray-700'
+                              }`}
+                          >
+                            {unit.name}
+                            {currentUnit.id === unit.id && <Icons.Check className="w-4 h-4" />}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* Global Search Bar */}
+            <div className="flex-1 max-w-xl mx-4 lg:mx-8 hidden sm:block">
+              <div className="relative group">
+                <span className="absolute left-4 top-3 text-gray-400 group-focus-within:text-red-500 transition-colors">
+                  <Icons.Search className="w-5 h-5" />
+                </span>
+                <input
+                  type="text"
+                  placeholder="Busque por módulos ou use IA..."
+                  className="w-full pl-12 pr-4 py-2.5 bg-gray-100 border-none rounded-full focus:ring-2 focus:ring-red-500 focus:bg-white transition-all text-sm outline-none"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                />
+                <button
+                  onClick={handleGlobalSearch}
+                  className="absolute right-2 top-2 bg-white p-1 rounded-full shadow-sm hover:text-red-600 text-gray-400 transition-colors"
+                  title="Pesquisar com IA"
+                >
+                  {isSearching ? <span className="animate-spin block h-3 w-3 border-2 border-red-600 rounded-full border-t-transparent"></span> : <Icons.Search className="w-3 h-3" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Right Actions */}
+            <div className="flex items-center gap-4">
+              <button className="relative p-2 text-gray-500 hover:text-red-600 transition-colors">
+                <Icons.Bell className="w-6 h-6" />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+              </button>
+
               <button
-                onClick={handleGlobalSearch}
-                className="absolute right-2 top-2 bg-white p-1 rounded-full shadow-sm hover:text-red-600 text-gray-400 transition-colors"
-                title="Pesquisar com IA"
+                onClick={() => setShowSettings(true)}
+                className="hidden md:flex items-center gap-3 pl-4 border-l border-gray-200 hover:bg-gray-50 rounded-lg p-2 transition-all cursor-pointer group"
               >
-                {isSearching ? <span className="animate-spin block h-3 w-3 border-2 border-red-600 rounded-full border-t-transparent"></span> : <Icons.Search className="w-3 h-3" />}
+                <div className="text-right">
+                  <p className="text-sm font-semibold text-gray-800 group-hover:text-red-700 transition-colors">{userDisplayName}</p>
+                  <p className="text-xs text-gray-500">{userDisplayRole}</p>
+                </div>
+                <div className="h-10 w-10 rounded-full bg-red-100 border-2 border-white shadow-sm flex items-center justify-center text-red-700 font-bold overflow-hidden group-hover:border-red-200">
+                  {/* Use text initials if no image, or a generic avatar */}
+                  <span className="text-sm">{userInitials}</span>
+                </div>
+              </button>
+
+              <button
+                onClick={onLogout}
+                className="p-2 text-gray-400 hover:text-red-600 transition-colors ml-2"
+                title="Sair"
+              >
+                <Icons.LogOut className="w-6 h-6" />
               </button>
             </div>
-          </div>
-
-          {/* Right Actions */}
-          <div className="flex items-center gap-4">
-            <button className="relative p-2 text-gray-500 hover:text-red-600 transition-colors">
-              <Icons.Bell className="w-6 h-6" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-            </button>
-
-            <button
-              onClick={() => setShowSettings(true)}
-              className="hidden md:flex items-center gap-3 pl-4 border-l border-gray-200 hover:bg-gray-50 rounded-lg p-2 transition-all cursor-pointer group"
-            >
-              <div className="text-right">
-                <p className="text-sm font-semibold text-gray-800 group-hover:text-red-700 transition-colors">Dr. Silva</p>
-                <p className="text-xs text-gray-500">Diretor Clínico</p>
-              </div>
-              <div className="h-10 w-10 rounded-full bg-red-100 border-2 border-white shadow-sm flex items-center justify-center text-red-700 font-bold overflow-hidden group-hover:border-red-200">
-                <img src="https://picsum.photos/100/100" alt="User" className="w-full h-full object-cover" />
-              </div>
-            </button>
-
-            <button
-              onClick={onLogout}
-              className="p-2 text-gray-400 hover:text-red-600 transition-colors ml-2"
-              title="Sair"
-            >
-              <Icons.LogOut className="w-6 h-6" />
-            </button>
           </div>
         </div>
       </header>
@@ -337,7 +405,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, currentUnit, onSwitchUn
             <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
             <p className="text-gray-500 mt-1 flex items-center gap-2">
               Visualizando dados de:
-              <span className="font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded text-sm border border-red-100">
+              <span className={`font-semibold px-2 py-0.5 rounded text-sm border ${currentUnit.id === 'master' ? 'text-white bg-red-600 border-red-700' : 'text-red-600 bg-red-50 border-red-100'}`}>
                 {currentUnit.name}
               </span>
             </p>
@@ -348,23 +416,25 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, currentUnit, onSwitchUn
         </div>
 
         {/* AI Response Area */}
-        {aiResponse && (
-          <div className="mb-8 bg-gradient-to-r from-red-50 to-white p-6 rounded-xl border border-red-100 shadow-sm flex items-start gap-4 animate-fade-in">
-            <div className="bg-red-100 p-2 rounded-full text-red-600 flex-shrink-0">
-              <Icons.Activity className="w-6 h-6" />
+        {
+          aiResponse && (
+            <div className="mb-8 bg-gradient-to-r from-red-50 to-white p-6 rounded-xl border border-red-100 shadow-sm flex items-start gap-4 animate-fade-in">
+              <div className="bg-red-100 p-2 rounded-full text-red-600 flex-shrink-0">
+                <Icons.Activity className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-red-900 mb-1">Resposta do Assistente Inteligente</h4>
+                <p className="text-gray-800">{aiResponse}</p>
+                <button
+                  onClick={() => setAiResponse(null)}
+                  className="text-xs text-red-500 mt-2 hover:underline"
+                >
+                  Fechar
+                </button>
+              </div>
             </div>
-            <div>
-              <h4 className="font-semibold text-red-900 mb-1">Resposta do Assistente Inteligente</h4>
-              <p className="text-gray-800">{aiResponse}</p>
-              <button
-                onClick={() => setAiResponse(null)}
-                className="text-xs text-red-500 mt-2 hover:underline"
-              >
-                Fechar
-              </button>
-            </div>
-          </div>
-        )}
+          )
+        }
 
         {/* Real-time Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

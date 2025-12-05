@@ -66,6 +66,9 @@ export const Icons: Record<string, React.FC<{ className?: string }>> = {
   ChevronDown: ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
   ),
+  ChevronRight: ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+  ),
   Shield: ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
   ),
@@ -293,6 +296,7 @@ export const HEALTH_UNITS: HealthUnit[] = [
   { id: '3', name: 'Maternidade Santa Clara', type: 'Maternidade' },
   { id: '4', name: 'UBS Jardim das Flores', type: 'UBS' },
   { id: '5', name: 'Laboratório Central', type: 'Laboratório' },
+  { id: 'master', name: 'Gestão Central (Secretaria)', type: 'Administrativo' },
 ];
 
 export const MOCK_EMERGENCY_PATIENTS: EmergencyPatient[] = [
@@ -633,4 +637,16 @@ export const MODULES_DATA: ModuleItem[] = [
   { id: '18', title: 'Triagem Neonatal', count: 9, category: 'clinical', iconName: 'Baby' },
   { id: '19', title: 'Vacinação Infantil', count: 64, category: 'clinical', iconName: 'Syringe' },
   { id: '20', title: 'Visita Maternidade', count: 7, category: 'clinical', iconName: 'Baby' },
+  // Unit Analysis Modules (Master Only)
+  { id: 'master_unit_1', title: 'Análise: H. Geral Central', count: 0, category: 'master_analysis', iconName: 'Building' },
+  { id: 'master_unit_2', title: 'Análise: UPA Zona Norte', count: 0, category: 'master_analysis', iconName: 'Building' },
+  { id: 'master_unit_3', title: 'Análise: Mat. Santa Clara', count: 0, category: 'master_analysis', iconName: 'Baby' },
+  { id: 'master_unit_4', title: 'Análise: UBS Jardim', count: 0, category: 'master_analysis', iconName: 'Activity' },
+  { id: 'master_unit_5', title: 'Análise: Lab. Central', count: 0, category: 'master_analysis', iconName: 'TestTube' },
 ];
+
+export const MASTER_UNIT: HealthUnit = {
+  id: 'master',
+  name: 'Visão Geral (Master)',
+  type: 'Administrativo'
+};

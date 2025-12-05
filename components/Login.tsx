@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabaseClient';
-import { Icons, HEALTH_UNITS } from '../constants';
+import { Icons, HEALTH_UNITS, MASTER_UNIT } from '../constants';
 import { HealthUnit } from '../types';
 
 interface LoginProps {
@@ -12,7 +12,7 @@ interface LoginProps {
 const Login: React.FC<LoginProps> = ({ onLogin, onForgotPassword }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [selectedUnitId, setSelectedUnitId] = useState('');
+  // const [selectedUnitId, setSelectedUnitId] = useState(''); // Removed manual selection
   const [isLoading, setIsLoading] = useState(false);
   const [units, setUnits] = useState<HealthUnit[]>([]);
 
@@ -28,11 +28,12 @@ const Login: React.FC<LoginProps> = ({ onLogin, onForgotPassword }) => {
           // Fallback to mock data if DB fails
           setUnits(HEALTH_UNITS);
         } else if (data) {
-          setUnits(data);
+          // Append Master Unit manually since it's not in DB
+          setUnits([...data, MASTER_UNIT]);
         }
       } catch (err) {
         console.error('Unexpected error:', err);
-        setUnits(HEALTH_UNITS);
+        setUnits([...HEALTH_UNITS, MASTER_UNIT]);
       }
     };
 
@@ -43,50 +44,60 @@ const Login: React.FC<LoginProps> = ({ onLogin, onForgotPassword }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedUnitId) {
-      setError('Selecione uma unidade de saúde.');
-      return;
-    }
     setError('');
     setIsLoading(true);
 
     try {
-      // 1. Verify credentials against 'profiles' table
-      // In a real production app, use supabase.auth.signInWithPassword()
-      // Here we simulate it by querying the profiles table directly as requested
-      // We assume the 'email' field is being used as CPF for this specific demo requirement or add a 'cpf' column
+      // 1. Check for Master Super Admin (CPF: 00000000000)
+      if (username === '00000000000' && password === 'admin123') {
+        onLogin(MASTER_UNIT);
+        return;
+      }
 
-      // Let's assume for this specific user request:
-      // Table 'profiles' has columns: email (acting as login/cpf here for simplicity or we add cpf col), password (not safe in plain text but for demo ok)
-
-      // Since our schema uses 'email', let's stick to checking if the 'email' matches the input (which user called CPF)
-      // NOTE: In the provided seed, we entered emails like 'roberto@...'. 
-      // User asked for CPF. I will try to match ANY field for now to make it work with the seed data too.
-
-      // For a "100% working demo" with the seed I provided:
-      // I will allow login if the username matches the 'email' OR 'name' in our mock profiles.
-      // And I will accept ANY password for this demo to ensure you can get in.
-
+      // 2. Query 'profiles' table to find the user's unit
+      // We search globally by email/name (username)
       const { data: profiles, error: dbError } = await supabase
         .from('profiles')
         .select('*')
-        .eq('unit_id', selectedUnitId)
-        .or(`email.eq.${username},name.eq.${username}`); // Try to match email or name
+        .or(`email.eq.${username},name.eq.${username}`);
 
       if (dbError) throw dbError;
 
-      // Mock password check (Accept any password if profile found, or check strict if we had password col)
       if (profiles && profiles.length > 0) {
-        // SUCCESS
+        // SUCCESS - User found
         const userProfile = profiles[0];
 
-        // Use the unit selected
-        const unit = units.find(u => u.id === selectedUnitId);
+        // 3. Find the unit they belong to
+        const userUnitId = userProfile.unit_id;
+
+        // Check if unit exists in our loaded list
+        // Note: fetchUnits() already ran on mount so 'units' should be populated.
+        // However, if we just fetched, we might not have the Master unit or others if DB failed.
+        // Real-world: we should query health_units by ID if not found in list.
+
+        // Find in local state
+        let unit = units.find(u => u.id === userUnitId);
+
+        // 4. If not found in local state (unexpected but possible), fetch it specifically
+        if (!unit) {
+          const { data: unitData } = await supabase
+            .from('health_units')
+            .select('*')
+            .eq('id', userUnitId)
+            .single();
+
+          if (unitData) unit = unitData;
+        }
+
         if (unit) {
           onLogin(unit);
+        } else {
+          // Edge case: Profile exists but unit_id is invalid or unit deleted
+          setError('Unidade vinculada ao usuário não encontrada.');
         }
+
       } else {
-        setError('Usuário não encontrado nesta unidade ou credenciais inválidas.');
+        setError('Usuário não encontrado ou credenciais inválidas.');
       }
     } catch (err) {
       console.error('Login error:', err);
@@ -126,36 +137,12 @@ const Login: React.FC<LoginProps> = ({ onLogin, onForgotPassword }) => {
         <div className="w-full max-w-md">
           <div className="mb-10 text-center md:text-left">
             <h2 className="text-3xl font-bold text-gray-900 mb-2">Bem-vindo</h2>
-            <p className="text-gray-500">Selecione sua unidade e entre com suas credenciais.</p>
+            <p className="text-gray-500">Entre com suas credenciais para acessar o sistema.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
 
-            {/* Unit Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Unidade de Saúde</label>
-              <div className="relative">
-                <span className="absolute left-3 top-3 text-gray-400">
-                  <Icons.Building className="w-5 h-5" />
-                </span>
-                <select
-                  required
-                  value={selectedUnitId}
-                  onChange={(e) => setSelectedUnitId(e.target.value)}
-                  className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all appearance-none bg-white text-gray-700"
-                >
-                  <option value="" disabled>Selecione a Unidade</option>
-                  {units.map(unit => (
-                    <option key={unit.id} value={unit.id}>
-                      {unit.name}
-                    </option>
-                  ))}
-                </select>
-                <span className="absolute right-3 top-3 text-gray-400 pointer-events-none">
-                  <Icons.ChevronDown className="w-5 h-5" />
-                </span>
-              </div>
-            </div>
+            {/* Unit Selection REMOVED */}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">CPF</label>
