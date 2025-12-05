@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
-import { Icons, MOCK_GOALS } from '../../constants';
+import { Icons } from '../../constants';
 import { IndicatorsPage } from '../../types';
+import { adminService, KpiMetric, KpiChart, KpiGoal } from '../../services/adminService';
 
 interface AdminIndicatorsModuleProps {
     onBack: () => void;
@@ -71,6 +72,45 @@ const SimpleLineChart: React.FC<{ data: number[]; color: string }> = ({ data, co
 
 const AdminIndicatorsModule: React.FC<AdminIndicatorsModuleProps> = ({ onBack }) => {
     const [activeTab, setActiveTab] = useState<IndicatorsPage>('overview');
+    const [metrics, setMetrics] = useState<KpiMetric[]>([]);
+    const [charts, setCharts] = useState<KpiChart[]>([]);
+    const [goals, setGoals] = useState<KpiGoal[]>([]);
+    const [loading, setLoading] = useState(false);
+
+    // Fetch Data on Tab Change
+    useEffect(() => {
+        loadData();
+    }, [activeTab]);
+
+    const loadData = async () => {
+        setLoading(true);
+        try {
+            // Parallel fetching suitable for dashboard
+            const [fetchedMetrics, fetchedCharts, fetchedGoals] = await Promise.all([
+                adminService.fetchMetrics(activeTab),
+                adminService.fetchCharts(activeTab),
+                adminService.fetchGoals()
+            ]);
+            setMetrics(fetchedMetrics);
+            setCharts(fetchedCharts);
+            setGoals(fetchedGoals);
+        } catch (error) {
+            console.error('Error loading KPI data:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const getIcon = (name: string) => {
+        const IconComponent = Icons[name as keyof typeof Icons];
+        return IconComponent ? <IconComponent className="w-5 h-5" /> : <Icons.Activity className="w-5 h-5" />;
+    };
+
+    const getTrendIcon = (trend: string) => {
+        if (trend === 'up') return <Icons.TrendingUp className="w-3 h-3" />;
+        if (trend === 'down') return <Icons.TrendingDown className="w-3 h-3" />;
+        return <Icons.Activity className="w-3 h-3" />;
+    };
 
     const getTabClass = (tab: IndicatorsPage) =>
         `px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === tab ? 'bg-indigo-50 text-indigo-700 shadow-sm border border-indigo-100' : 'text-gray-600 hover:bg-gray-50 border border-transparent'}`;
@@ -81,59 +121,52 @@ const AdminIndicatorsModule: React.FC<AdminIndicatorsModuleProps> = ({ onBack })
                 return (
                     <div className="space-y-6 animate-fade-in">
                         {/* Summary Cards */}
+                        {/* Summary Cards */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                                <div className="flex justify-between items-start mb-2">
-                                    <h3 className="text-gray-500 text-xs font-bold uppercase">Ocupação Geral</h3>
-                                    <Icons.Activity className="w-5 h-5 text-indigo-600" />
+                            {metrics.map(metric => (
+                                <div key={metric.id} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm animate-fade-in">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <h3 className="text-gray-500 text-xs font-bold uppercase">{metric.title}</h3>
+                                        <div className={metric.icon_color || 'text-indigo-600'}>
+                                            {getIcon(metric.icon_name)}
+                                        </div>
+                                    </div>
+                                    <p className="text-3xl font-bold text-gray-900">{metric.value}</p>
+                                    <span className={`text-xs flex items-center gap-1 mt-1 ${metric.trend_color === 'red' ? 'text-red-500' :
+                                            metric.trend_color === 'green' ? 'text-green-500' : 'text-gray-400'
+                                        }`}>
+                                        {getTrendIcon(metric.trend)} {metric.trend_label}
+                                    </span>
                                 </div>
-                                <p className="text-3xl font-bold text-gray-900">87%</p>
-                                <span className="text-xs text-red-500 flex items-center gap-1 mt-1"><Icons.TrendingUp className="w-3 h-3" /> +2% vs mês anterior</span>
-                            </div>
-                            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                                <div className="flex justify-between items-start mb-2">
-                                    <h3 className="text-gray-500 text-xs font-bold uppercase">Média Perm.</h3>
-                                    <Icons.Clock className="w-5 h-5 text-blue-600" />
-                                </div>
-                                <p className="text-3xl font-bold text-gray-900">5.2d</p>
-                                <span className="text-xs text-green-500 flex items-center gap-1 mt-1"><Icons.TrendingDown className="w-3 h-3" /> -0.4d vs meta</span>
-                            </div>
-                            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                                <div className="flex justify-between items-start mb-2">
-                                    <h3 className="text-gray-500 text-xs font-bold uppercase">NPS (Sat)</h3>
-                                    <Icons.HeartPulse className="w-5 h-5 text-pink-600" />
-                                </div>
-                                <p className="text-3xl font-bold text-gray-900">92</p>
-                                <span className="text-xs text-green-500 flex items-center gap-1 mt-1"><Icons.TrendingUp className="w-3 h-3" /> Zona de Excelência</span>
-                            </div>
-                            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                                <div className="flex justify-between items-start mb-2">
-                                    <h3 className="text-gray-500 text-xs font-bold uppercase">Infecções</h3>
-                                    <Icons.ShieldAlert className="w-5 h-5 text-orange-600" />
-                                </div>
-                                <p className="text-3xl font-bold text-gray-900">1.2%</p>
-                                <span className="text-xs text-gray-400 mt-1">Dentro da meta (&lt;2%)</span>
-                            </div>
+                            ))}
                         </div>
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                                <h3 className="font-bold text-gray-900 mb-4">Atendimentos Mensais (Urgência vs Ambulatório)</h3>
-                                <SimpleBarChart
-                                    data={[1200, 1350, 1100, 1400, 1550, 1480]}
-                                    labels={['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun']}
-                                    color="bg-indigo-500"
-                                />
-                            </div>
-                            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                                <h3 className="font-bold text-gray-900 mb-4">Taxa de Mortalidade Institucional (%)</h3>
-                                <SimpleLineChart
-                                    data={[4.2, 4.0, 3.8, 3.9, 3.5, 3.2]}
-                                    color="#10B981"
-                                />
-                                <div className="flex justify-between text-xs text-gray-400 mt-2 px-1">
-                                    <span>Jan</span><span>Fev</span><span>Mar</span><span>Abr</span><span>Mai</span><span>Jun</span>
-                                </div>
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                {charts.map(chart => (
+                                    <div key={chart.id} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                                        <h3 className="font-bold text-gray-900 mb-4">{chart.title}</h3>
+                                        {chart.chart_type === 'bar' ? (
+                                            <SimpleBarChart
+                                                data={chart.data_points}
+                                                labels={chart.labels || []}
+                                                color={chart.color}
+                                            />
+                                        ) : (
+                                            <>
+                                                <SimpleLineChart
+                                                    data={chart.data_points}
+                                                    color={chart.color}
+                                                />
+                                                {chart.labels && (
+                                                    <div className="flex justify-between text-xs text-gray-400 mt-2 px-1">
+                                                        {chart.labels.map((l, i) => <span key={i}>{l}</span>)}
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
+                                ))}
                             </div>
                         </div>
 
@@ -143,27 +176,29 @@ const AdminIndicatorsModule: React.FC<AdminIndicatorsModuleProps> = ({ onBack })
                                 <Icons.Target className="w-5 h-5 text-red-600" /> Metas Estratégicas
                             </h3>
                             <div className="space-y-4">
-                                {MOCK_GOALS.slice(0, 3).map(goal => (
-                                    <div key={goal.id} className="flex items-center gap-4">
-                                        <div className={`w-3 h-3 rounded-full ${goal.status === 'success' ? 'bg-green-500' :
-                                            goal.status === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
-                                            }`}></div>
-                                        <div className="flex-1">
-                                            <div className="flex justify-between mb-1">
-                                                <span className="text-sm font-medium text-gray-700">{goal.name}</span>
-                                                <span className="text-xs text-gray-500">{goal.currentValue}{goal.unit} / {goal.targetValue}{goal.unit}</span>
-                                            </div>
-                                            <div className="w-full bg-gray-100 rounded-full h-2">
-                                                <div
-                                                    className={`h-2 rounded-full ${goal.status === 'success' ? 'bg-green-500' :
-                                                        goal.status === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
-                                                        }`}
-                                                    style={{ width: `${Math.min((goal.currentValue / goal.targetValue) * 100, 100)}%` }}
-                                                ></div>
+                                <div className="space-y-4">
+                                    {goals.slice(0, 3).map(goal => (
+                                        <div key={goal.id} className="flex items-center gap-4">
+                                            <div className={`w-3 h-3 rounded-full ${goal.status === 'success' ? 'bg-green-500' :
+                                                goal.status === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
+                                                }`}></div>
+                                            <div className="flex-1">
+                                                <div className="flex justify-between mb-1">
+                                                    <span className="text-sm font-medium text-gray-700">{goal.name}</span>
+                                                    <span className="text-xs text-gray-500">{goal.current_value}{goal.unit} / {goal.target_value}{goal.unit}</span>
+                                                </div>
+                                                <div className="w-full bg-gray-100 rounded-full h-2">
+                                                    <div
+                                                        className={`h-2 rounded-full ${goal.status === 'success' ? 'bg-green-500' :
+                                                            goal.status === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
+                                                            }`}
+                                                        style={{ width: `${Math.min((goal.current_value / goal.target_value) * 100, 100)}%` }}
+                                                    ></div>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -192,11 +227,16 @@ const AdminIndicatorsModule: React.FC<AdminIndicatorsModuleProps> = ({ onBack })
 
                         <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
                             <h3 className="font-bold text-gray-900 mb-4">Taxa de Ocupação por Especialidade</h3>
-                            <SimpleBarChart
-                                data={[95, 80, 65, 88, 70]}
-                                labels={['Cardio', 'Ortopedia', 'Geral', 'Neuro', 'Pediatria']}
-                                color="bg-blue-500"
-                            />
+                            {/* Only render if chart data is available or fallback */}
+                            {charts.length > 0 ? (
+                                <SimpleBarChart
+                                    data={charts[0].data_points}
+                                    labels={charts[0].labels || []}
+                                    color={charts[0].color}
+                                />
+                            ) : (
+                                <p className="text-gray-500 italic">Carregando dados...</p>
+                            )}
                         </div>
                     </div>
                 );
@@ -384,7 +424,8 @@ const AdminIndicatorsModule: React.FC<AdminIndicatorsModuleProps> = ({ onBack })
                             </div>
 
                             <div className="space-y-6">
-                                {MOCK_GOALS.map(goal => (
+                                {loading && <p className="text-center text-gray-400">Carregando metas...</p>}
+                                {goals.map(goal => (
                                     <div key={goal.id} className="border border-gray-100 rounded-xl p-4 bg-gray-50">
                                         <div className="flex justify-between items-start mb-2">
                                             <div className="flex items-center gap-3">
@@ -395,14 +436,14 @@ const AdminIndicatorsModule: React.FC<AdminIndicatorsModuleProps> = ({ onBack })
                                                 </div>
                                                 <div>
                                                     <h4 className="font-bold text-gray-900">{goal.name}</h4>
-                                                    <p className="text-xs text-gray-500">Meta: {goal.targetValue}{goal.unit}</p>
+                                                    <p className="text-xs text-gray-500">Meta: {goal.target_value}{goal.unit}</p>
                                                 </div>
                                             </div>
                                             <div className="text-right">
                                                 <p className={`text-2xl font-bold ${goal.status === 'success' ? 'text-green-600' :
                                                     goal.status === 'warning' ? 'text-yellow-600' : 'text-red-600'
                                                     }`}>
-                                                    {goal.currentValue}{goal.unit}
+                                                    {goal.current_value}{goal.unit}
                                                 </p>
                                             </div>
                                         </div>
@@ -413,7 +454,7 @@ const AdminIndicatorsModule: React.FC<AdminIndicatorsModuleProps> = ({ onBack })
                                                 className={`h-full rounded-full ${goal.status === 'success' ? 'bg-green-500' :
                                                     goal.status === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
                                                     }`}
-                                                style={{ width: `${Math.min((goal.currentValue / goal.targetValue) * 80, 100)}%` }} // Scaled roughly for demo
+                                                style={{ width: `${Math.min((goal.current_value / goal.target_value) * 80, 100)}%` }} // Scaled roughly for demo
                                             ></div>
                                         </div>
                                         <div className="flex justify-between text-xs text-gray-400 mt-1">

@@ -25,6 +25,7 @@ import AdminIndicatorsModule from './modules/AdminIndicatorsModule';
 import NeonatalScreeningModule from './modules/clinical/NeonatalScreeningModule';
 import MaternityVisitModule from './modules/clinical/MaternityVisitModule';
 import VaccinationModule from './modules/clinical/VaccinationModule';
+import MultidisciplinaryScheduleModule from './modules/clinical/MultidisciplinaryScheduleModule';
 import MasterAnalysisModule from './modules/MasterAnalysisModule';
 import MasterUnitMonitor from './modules/MasterUnitMonitor';
 import UserSettings from './UserSettings';
@@ -81,7 +82,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, currentUnit, onSwitchUn
 
   const handleModuleClick = (moduleId: string) => {
     // Whitelist active modules
-    const whitelist = ['1', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20'];
+    const whitelist = ['1', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21'];
     // Allow master unit modules (dynamic IDs starting with master_unit_)
     const isMasterModule = moduleId.startsWith('master_unit_');
 
@@ -213,6 +214,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, currentUnit, onSwitchUn
     if (activeModuleId === '19') return <VaccinationModule onBack={() => setActiveModuleId(null)} />;
     // Maternity Visit
     if (activeModuleId === '20') return <MaternityVisitModule onBack={() => setActiveModuleId(null)} />;
+    // Multidisciplinary Schedule
+    if (activeModuleId === '21') return <MultidisciplinaryScheduleModule onBack={() => setActiveModuleId(null)} />;
     // Master Analysis (Global) - Removed
     // if (activeModuleId === '99') return <MasterAnalysisModule onBack={() => setActiveModuleId(null)} />;
 

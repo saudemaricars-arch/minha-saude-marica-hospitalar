@@ -637,6 +637,7 @@ export const MODULES_DATA: ModuleItem[] = [
   { id: '18', title: 'Triagem Neonatal', count: 9, category: 'clinical', iconName: 'Baby' },
   { id: '19', title: 'Vacinação Infantil', count: 64, category: 'clinical', iconName: 'Syringe' },
   { id: '20', title: 'Visita Maternidade', count: 7, category: 'clinical', iconName: 'Baby' },
+  { id: '21', title: 'Agenda Multidisciplinar', count: 0, category: 'clinical', iconName: 'Calendar' },
   // Unit Analysis Modules (Master Only)
   { id: 'master_unit_1', title: 'Análise: H. Geral Central', count: 0, category: 'master_analysis', iconName: 'Building' },
   { id: 'master_unit_2', title: 'Análise: UPA Zona Norte', count: 0, category: 'master_analysis', iconName: 'Building' },
