@@ -75,9 +75,9 @@ const VaccinationModule: React.FC<VaccinationModuleProps> = ({ onBack }) => {
             setIsModalOpen(false);
             setNewPatient({});
             loadPatients(); // Reload list
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error creating patient:', error);
-            alert('Erro ao salvar paciente.');
+            alert('Erro ao salvar paciente: ' + (error.message || 'Erro desconhecido'));
         }
     };
 

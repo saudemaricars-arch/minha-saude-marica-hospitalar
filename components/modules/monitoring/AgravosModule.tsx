@@ -40,9 +40,9 @@ const AgravosModule: React.FC<AgravosModuleProps> = ({ onBack }) => {
             setView('list');
             setNewCase({ disease: '', patientName: '' });
             alert("Notificação registrada com sucesso!");
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            alert("Erro ao salvar notificação");
+            alert("Erro ao salvar notificação: " + (error.message || 'Erro desconhecido'));
         }
     };
 

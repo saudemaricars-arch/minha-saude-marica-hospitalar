@@ -93,9 +93,9 @@ const NeonatalScreeningModule: React.FC<NeonatalScreeningModuleProps> = ({ onBac
             setIsModalOpen(false);
             setNewBaby({});
             loadPatients();
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error creating patient:', error);
-            alert('Erro ao salvar paciente');
+            alert('Erro ao salvar paciente: ' + (error.message || 'Erro desconhecido'));
         }
     };
 
