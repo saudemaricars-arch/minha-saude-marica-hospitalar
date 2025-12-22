@@ -49,7 +49,8 @@ const Login: React.FC<LoginProps> = ({ onLogin, onForgotPassword }) => {
 
     try {
       // 1. Check for Master Super Admin (CPF: 00000000000)
-      if (username === '00000000000' && password === 'admin123') {
+      // 1. Check for Master Super Admin (CPF: 00000000000) OR General Manager (CPF: 99999999999)
+      if ((username === '00000000000' && password === 'admin123') || (username === '99999999999' && password === 'gerente123')) {
         onLogin(MASTER_UNIT);
         return;
       }

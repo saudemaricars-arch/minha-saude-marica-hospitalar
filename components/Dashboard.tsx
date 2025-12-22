@@ -82,7 +82,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, currentUnit, onSwitchUn
 
   const handleModuleClick = (moduleId: string) => {
     // Whitelist active modules
-    const whitelist = ['1', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21'];
+    const whitelist = ['1', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20', '21', '99'];
     // Allow master unit modules (dynamic IDs starting with master_unit_)
     const isMasterModule = moduleId.startsWith('master_unit_');
 
@@ -216,8 +216,8 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, currentUnit, onSwitchUn
     if (activeModuleId === '20') return <MaternityVisitModule onBack={() => setActiveModuleId(null)} />;
     // Multidisciplinary Schedule
     if (activeModuleId === '21') return <MultidisciplinaryScheduleModule onBack={() => setActiveModuleId(null)} />;
-    // Master Analysis (Global) - Removed
-    // if (activeModuleId === '99') return <MasterAnalysisModule onBack={() => setActiveModuleId(null)} />;
+    // Master Analysis (Global)
+    if (activeModuleId === '99') return <MasterAnalysisModule onBack={() => setActiveModuleId(null)} />;
 
     // Master Unit Analysis (Dynamic)
     if (activeModuleId.startsWith('master_unit_')) {

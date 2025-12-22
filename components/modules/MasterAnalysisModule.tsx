@@ -1,182 +1,223 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Icons, HEALTH_UNITS } from '../../constants';
-import { HealthUnit } from '../../types';
-import MasterUnitMonitor from './MasterUnitMonitor';
+// Import Recharts
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-    LineChart, Line, PieChart, Pie, Cell
+    LineChart, Line, AreaChart, Area, PieChart, Pie, Cell
 } from 'recharts';
+// Import detailed monitor
+import MasterUnitMonitor from './MasterUnitMonitor';
+
+// Mock Data for Global Analysis
+const GLOBAL_STATS = [
+    { name: 'Ocupação Total', value: '87%', status: 'warning', icon: Icons.Bed },
+    { name: 'Fila Global', value: '142', status: 'critical', icon: Icons.Users },
+    { name: 'Tempo Médio', value: '3h 12m', status: 'normal', icon: Icons.Clock },
+    { name: 'Médicos Ativos', value: '64/80', status: 'alert', icon: Icons.Stethoscope },
+];
+
+const MOCK_GLOBAL_FLOW = [
+    { name: '00h', hospital: 30, upa: 45, ubs: 10 },
+    { name: '04h', hospital: 25, upa: 50, ubs: 5 },
+    { name: '08h', hospital: 80, upa: 120, ubs: 60 },
+    { name: '12h', hospital: 95, upa: 140, ubs: 90 },
+    { name: '16h', hospital: 85, upa: 130, ubs: 80 },
+    { name: '20h', hospital: 70, upa: 90, ubs: 40 },
+];
+
+const MOCK_UNIT_STATUS = {
+    '1': { occupancy: 92, waitTime: '4h', trend: 'up' }, // Hospital Geral
+    '2': { occupancy: 85, waitTime: '2h', trend: 'stable' }, // UPA
+    '3': { occupancy: 45, waitTime: '40m', trend: 'down' }, // Maternidade
+    '4': { occupancy: 30, waitTime: '15m', trend: 'stable' }, // UBS
+    '5': { occupancy: 60, waitTime: '1h', trend: 'up' }, // Lab
+};
 
 interface MasterAnalysisModuleProps {
     onBack: () => void;
 }
 
-const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6'];
-
-const MOCK_COMPARATIVE_DATA = [
-    { name: 'Hosp. Geral', ocupacao: 85, espera: 45, satisfacao: 90 },
-    { name: 'UPA Zona Norte', ocupacao: 70, espera: 30, satisfacao: 92 },
-    { name: 'Maternidade', ocupacao: 80, espera: 20, satisfacao: 95 },
-    { name: 'UBS Jardim', ocupacao: 40, espera: 15, satisfacao: 88 },
-];
-
-const MOCK_ALERTS = [
-    { id: 1, unit: 'Hosp. Geral', message: 'Superlotação na Emergência', type: 'critical' },
-    { id: 2, unit: 'UPA Zona Norte', message: 'Estoque de Dipirona Baixo', type: 'warning' },
-    { id: 3, unit: 'Maternidade', message: 'Manutenção Incubadora 02', type: 'warning' },
-];
-
 const MasterAnalysisModule: React.FC<MasterAnalysisModuleProps> = ({ onBack }) => {
-    const [selectedUnit, setSelectedUnit] = React.useState<HealthUnit | null>(null);
+    const [selectedUnit, setSelectedUnit] = useState<typeof HEALTH_UNITS[0] | null>(null);
 
-    // If a unit is selected, show its specific monitor page
+    // If a unit is selected, show the detailed monitor
     if (selectedUnit) {
         return <MasterUnitMonitor unit={selectedUnit} onBack={() => setSelectedUnit(null)} />;
     }
 
     return (
-        <div className="flex-1 bg-gray-50 p-6 overflow-auto">
-            {/* Header */}
-            <div className="mb-6 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <button
-                        onClick={onBack}
-                        className="p-2 hover:bg-gray-200 rounded-full transition-colors"
-                    >
-                        <Icons.ArrowLeft className="w-6 h-6 text-gray-600" />
-                    </button>
-                    <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Análise Global (Master)</h1>
-                        <p className="text-gray-500">Visão consolidada de todas as unidades de saúde</p>
-                    </div>
+        <div className="flex-1 bg-gray-50 p-6 overflow-auto animate-fade-in">
+            {/* Top Bar */}
+            <div className="flex justify-between items-center mb-8">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-900">Painel de Comando Central</h1>
+                    <p className="text-gray-500 mt-1">Visão Estratégica da Rede de Saúde Municipal</p>
                 </div>
-                <div className="flex gap-2">
-                    <button className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                        <Icons.Download className="w-4 h-4" />
-                        Exportar Relatório
-                    </button>
+                <div className="flex gap-3">
+                    <div className="text-right px-4 py-2 bg-white rounded-lg border border-gray-200 shadow-sm">
+                        <p className="text-xs text-gray-500 uppercase font-bold">Última Atualização</p>
+                        <p className="text-gray-900 font-medium">Agora (Tempo Real)</p>
+                    </div>
                 </div>
             </div>
 
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <p className="text-sm font-medium text-gray-500">Total de Atendimentos (Hoje)</p>
-                    <h3 className="text-3xl font-bold text-gray-900 mt-2">1,245</h3>
-                    <span className="text-sm text-green-600 font-medium flex items-center gap-1 mt-1">
-                        <Icons.TrendingUp className="w-3 h-3" /> +12% vs ontem
-                    </span>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                {GLOBAL_STATS.map((stat, idx) => {
+                    const ColorIcon = stat.icon;
+                    return (
+                        <div key={idx} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between group hover:shadow-md transition-all">
+                            <div>
+                                <p className="text-sm font-medium text-gray-500 mb-1">{stat.name}</p>
+                                <h3 className="text-3xl font-bold text-gray-900">{stat.value}</h3>
+                                {stat.status === 'critical' && <span className="text-xs text-red-600 font-bold bg-red-50 px-2 py-0.5 rounded-full">Crítico</span>}
+                                {stat.status === 'warning' && <span className="text-xs text-yellow-600 font-bold bg-yellow-50 px-2 py-0.5 rounded-full">Atenção</span>}
+                            </div>
+                            <div className={`p-4 rounded-xl ${stat.status === 'critical' ? 'bg-red-100 text-red-600' : stat.status === 'warning' ? 'bg-yellow-100 text-yellow-600' : 'bg-blue-50 text-blue-600'}`}>
+                                <ColorIcon className="w-8 h-8" />
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Main Content Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+                {/* Chart Section */}
+                <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-xl font-bold text-gray-900">Fluxo de Atendimento Rede</h3>
+                        <div className="flex gap-2">
+                            <span className="flex items-center gap-1 text-xs font-medium text-gray-500"><span className="w-2 h-2 rounded-full bg-blue-500"></span>Hospital</span>
+                            <span className="flex items-center gap-1 text-xs font-medium text-gray-500"><span className="w-2 h-2 rounded-full bg-emerald-500"></span>UPA</span>
+                            <span className="flex items-center gap-1 text-xs font-medium text-gray-500"><span className="w-2 h-2 rounded-full bg-purple-500"></span>UBS</span>
+                        </div>
+                    </div>
+                    <div className="h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={MOCK_GLOBAL_FLOW}>
+                                <defs>
+                                    <linearGradient id="colorHospital" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1} />
+                                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                                    </linearGradient>
+                                    <linearGradient id="colorUpa" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.1} />
+                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
+                                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                                <Area type="monotone" dataKey="hospital" stackId="1" stroke="#3b82f6" fill="url(#colorHospital)" />
+                                <Area type="monotone" dataKey="upa" stackId="1" stroke="#10b981" fill="url(#colorUpa)" />
+                                <Area type="monotone" dataKey="ubs" stackId="1" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.2} />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
                 </div>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <p className="text-sm font-medium text-gray-500">Média de Ocupação Global</p>
-                    <h3 className="text-3xl font-bold text-gray-900 mt-2">76%</h3>
-                    <span className="text-sm text-orange-600 font-medium flex items-center gap-1 mt-1">
-                        <Icons.Activity className="w-3 h-3" /> Atenção
-                    </span>
-                </div>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <p className="text-sm font-medium text-gray-500">Tempo Médio de Espera</p>
-                    <h3 className="text-3xl font-bold text-gray-900 mt-2">28 min</h3>
-                    <span className="text-sm text-green-600 font-medium flex items-center gap-1 mt-1">
-                        <Icons.CheckCircle className="w-3 h-3" /> Dentro da meta
-                    </span>
-                </div>
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <p className="text-sm font-medium text-gray-500">Alertas Críticos</p>
-                    <h3 className="text-3xl font-bold text-red-600 mt-2">3</h3>
-                    <span className="text-sm text-red-600 font-medium flex items-center gap-1 mt-1">
-                        <Icons.AlertCircle className="w-3 h-3" /> Ação Necessária
-                    </span>
+
+                {/* Alerts/Notifications Side */}
+                <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-xl p-6 text-white shadow-lg">
+                    <div className="flex items-center gap-3 mb-6">
+                        <Icons.AlertTriangle className="w-6 h-6 text-yellow-400" />
+                        <h3 className="text-xl font-bold">Alertas da Rede</h3>
+                    </div>
+                    <div className="space-y-4">
+                        <div className="bg-white/10 p-4 rounded-lg hover:bg-white/20 transition-colors cursor-pointer border border-white/5">
+                            <div className="flex justify-between items-start">
+                                <span className="text-xs font-bold text-red-300 uppercase tracking-wider">Emergência</span>
+                                <span className="text-xs text-gray-400">12 min atrás</span>
+                            </div>
+                            <p className="font-semibold mt-1">Hospital Geral: Capacidade de Trauma excedida.</p>
+                        </div>
+                        <div className="bg-white/10 p-4 rounded-lg hover:bg-white/20 transition-colors cursor-pointer border border-white/5">
+                            <div className="flex justify-between items-start">
+                                <span className="text-xs font-bold text-yellow-300 uppercase tracking-wider">Logística</span>
+                                <span className="text-xs text-gray-400">45 min atrás</span>
+                            </div>
+                            <p className="font-semibold mt-1">UPA Zona Norte: Baixo estoque de oxigênio (cilindros).</p>
+                        </div>
+                        <div className="bg-white/10 p-4 rounded-lg hover:bg-white/20 transition-colors cursor-pointer border border-white/5">
+                            <div className="flex justify-between items-start">
+                                <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">Pessoal</span>
+                                <span className="text-xs text-gray-400">2h atrás</span>
+                            </div>
+                            <p className="font-semibold mt-1">UBS Jardim: Médico plantonista faltou.</p>
+                        </div>
+                    </div>
+                    <button className="w-full mt-6 py-3 bg-white text-gray-900 rounded-lg font-bold text-sm hover:bg-gray-100 transition-colors">
+                        Ver Centro de Notificações
+                    </button>
                 </div>
             </div>
 
-            {/* Unit Selection Grid - New Feature */}
-            <div className="mb-8">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Monitoramento Detalhado por Unidade</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {HEALTH_UNITS.map(unit => {
-                        if (unit.id === 'master' || unit.id === '00000000-0000-0000-0000-000000000000') return null; // Skip Master unit itself
-                        return (
-                            <button
-                                key={unit.id}
-                                onClick={() => setSelectedUnit(unit)}
-                                className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:border-red-300 hover:shadow-md transition-all text-left flex items-center justify-between group"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-gray-50 rounded-lg group-hover:bg-red-50 transition-colors">
-                                        <Icons.Building className="w-5 h-5 text-gray-600 group-hover:text-red-600" />
+            {/* Units Grid */}
+            <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                <Icons.MapPin className="w-5 h-5 text-gray-500" />
+                Monitoramento por Unidade
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {HEALTH_UNITS.map(unit => {
+                    if (unit.id === 'master' || unit.id.startsWith('0000')) return null;
+
+                    // Get mock status
+                    // @ts-ignore
+                    const status = MOCK_UNIT_STATUS[unit.id] || { occupancy: 50, waitTime: '30m', trend: 'stable' };
+                    const isHighOccupancy = status.occupancy > 80;
+
+                    return (
+                        <button
+                            key={unit.id}
+                            onClick={() => setSelectedUnit(unit)}
+                            className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-lg transition-all text-left group relative overflow-hidden"
+                        >
+                            {isHighOccupancy && <div className="absolute top-0 right-0 w-2 h-full bg-red-500"></div>}
+
+                            <div className="flex items-center justify-between mb-4">
+                                <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${unit.type === 'Hospital' ? 'bg-purple-100 text-purple-700' : 'bg-blue-50 text-blue-700'}`}>
+                                    {unit.type}
+                                </span>
+                                {isHighOccupancy ? (
+                                    <span className="flex items-center gap-1 text-xs font-bold text-red-600 animate-pulse">
+                                        <div className="w-2 h-2 rounded-full bg-red-600"></div>
+                                        LOTAÇÃO MÁXIMA
+                                    </span>
+                                ) : (
+                                    <span className="flex items-center gap-1 text-xs font-bold text-green-600">
+                                        <div className="w-2 h-2 rounded-full bg-green-600"></div>
+                                        Normal
+                                    </span>
+                                )}
+                            </div>
+
+                            <h3 className="text-lg font-bold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">{unit.name}</h3>
+                            <p className="text-sm text-gray-500 mb-6">Monitoramento ativo • {status.waitTime} espera</p>
+
+                            <div className="space-y-3">
+                                <div>
+                                    <div className="flex justify-between text-xs mb-1">
+                                        <span className="font-medium text-gray-600">Ocupação</span>
+                                        <span className={`font-bold ${isHighOccupancy ? 'text-red-600' : 'text-blue-600'}`}>{status.occupancy}%</span>
                                     </div>
-                                    <div>
-                                        <h4 className="font-semibold text-gray-900 group-hover:text-red-700">{unit.name}</h4>
-                                        <p className="text-xs text-gray-500">{unit.type}</p>
+                                    <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                                        <div
+                                            className={`h-full rounded-full ${isHighOccupancy ? 'bg-red-500' : 'bg-blue-500'}`}
+                                            style={{ width: `${status.occupancy}%` }}
+                                        ></div>
                                     </div>
                                 </div>
-                                <Icons.ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-red-400" />
-                            </button>
-                        );
-                    })}
-                </div>
-            </div>
-
-            {/* Charts Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-
-                {/* Occupancy Comparison */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4">Taxa de Ocupação por Unidade (%)</h3>
-                    <div className="h-80 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={MOCK_COMPARATIVE_DATA} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                                <XAxis type="number" domain={[0, 100]} />
-                                <YAxis dataKey="name" type="category" width={100} />
-                                <Tooltip />
-                                <Legend />
-                                <Bar dataKey="ocupacao" name="Ocupação" fill="#ef4444" radius={[0, 4, 4, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-
-                {/* Wait Time vs Satisfaction */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4">Espera (min) vs Satisfação</h3>
-                    <div className="h-80 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={MOCK_COMPARATIVE_DATA}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="name" />
-                                <YAxis yAxisId="left" orientation="left" stroke="#8884d8" />
-                                <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" />
-                                <Tooltip />
-                                <Legend />
-                                <Bar yAxisId="left" dataKey="espera" name="Espera (min)" fill="#8884d8" />
-                                <Bar yAxisId="right" dataKey="satisfacao" name="Satisfação" fill="#82ca9d" />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-            </div>
-
-            {/* Alert List */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Alertas e Notificações Globais</h3>
-                <div className="space-y-4">
-                    {MOCK_ALERTS.map((alert) => (
-                        <div key={alert.id} className={`p-4 rounded-lg flex items-start gap-3 border ${alert.type === 'critical' ? 'bg-red-50 border-red-100' : 'bg-yellow-50 border-yellow-100'}`}>
-                            <div className={`mt-0.5 ${alert.type === 'critical' ? 'text-red-600' : 'text-yellow-600'}`}>
-                                <Icons.AlertTriangle className="w-5 h-5" />
                             </div>
-                            <div>
-                                <h4 className={`font-semibold ${alert.type === 'critical' ? 'text-red-900' : 'text-yellow-900'}`}>{alert.unit}</h4>
-                                <p className={`${alert.type === 'critical' ? 'text-red-800' : 'text-yellow-800'}`}>{alert.message}</p>
+
+                            <div className="mt-6 flex items-center justify-end">
+                                <span className="text-sm font-medium text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all flex items-center gap-1">
+                                    Acessar Painel <Icons.ChevronRight className="w-4 h-4" />
+                                </span>
                             </div>
-                            <button className="ml-auto text-sm font-medium underline opacity-70 hover:opacity-100">
-                                Ver Detalhes
-                            </button>
-                        </div>
-                    ))}
-                </div>
+                        </button>
+                    );
+                })}
             </div>
         </div>
     );
