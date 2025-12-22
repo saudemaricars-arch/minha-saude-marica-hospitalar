@@ -373,22 +373,21 @@ const MaternityVisitModule: React.FC<MaternityVisitModuleProps> = ({ onBack }) =
                                                 setIsVisitModalOpen(false);
                                                 loadVisits();
                                             }
-                                        }
                                         } catch (e: any) {
-                                    console.error(e);
-                                alert("Erro ao salvar visita: " + (e.message || 'Erro desconhecido'));
+                                            console.error(e);
+                                            alert("Erro ao salvar visita: " + (e.message || 'Erro desconhecido'));
                                         }
                                     }}
-                                className="px-6 py-2 bg-rose-600 text-white rounded-lg font-bold shadow hover:bg-rose-700"
+                                    className="px-6 py-2 bg-rose-600 text-white rounded-lg font-bold shadow hover:bg-rose-700"
                                 >
-                                Salvar Registro & Concluir
-                            </button>
+                                    Salvar Registro & Concluir
+                                </button>
+                            </div>
                         </div>
-                    </div>
                     </div>
                 )}
 
-        </div>
+            </div>
         </div >
     );
 };
