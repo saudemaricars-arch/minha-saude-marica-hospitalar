@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { agravosService, DiseaseNotification } from '../../../services/agravosService';
-import { MOCK_NOTIFICATIONS } from '../../../constants';
+import { MOCK_NOTIFICATIONS, Icons } from '../../../constants';
 
 interface AgravosModuleProps {
     onBack: () => void;
@@ -131,8 +131,8 @@ const AgravosModule: React.FC<AgravosModuleProps> = ({ onBack }) => {
                                             <td className="px-6 py-4 text-gray-600">{notif.notification_date} <span className="text-xs text-gray-400">(SE {notif.week})</span></td>
                                             <td className="px-6 py-4">
                                                 <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${notif.status === 'confirmado' ? 'bg-red-100 text-red-700' :
-                                                        notif.status === 'descartado' ? 'bg-gray-100 text-gray-700' :
-                                                            'bg-yellow-100 text-yellow-700'
+                                                    notif.status === 'descartado' ? 'bg-gray-100 text-gray-700' :
+                                                        'bg-yellow-100 text-yellow-700'
                                                     }`}>
                                                     {notif.status}
                                                 </span>

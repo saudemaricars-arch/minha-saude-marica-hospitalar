@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { vaccinationService, VaccinationPatient } from '../../../services/vaccinationService';
 import { MOCK_VACCINES, Icons } from '../../../constants';
 

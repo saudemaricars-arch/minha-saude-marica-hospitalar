@@ -118,7 +118,7 @@ const MultidisciplinaryScheduleModule: React.FC<{ onBack: () => void }> = ({ onB
                         onClick={() => loadAppointments()}
                         className="flex items-center gap-2 px-4 py-2 text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 shadow-sm"
                     >
-                        <Icons.RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                        <Icons.Refresh className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                     </button>
                     <button
                         onClick={() => setShowNewModal(true)}

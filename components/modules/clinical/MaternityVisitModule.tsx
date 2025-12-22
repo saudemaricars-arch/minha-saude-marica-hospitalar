@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { maternityService, MaternityVisit } from '../../../services/maternityService';
 import { Icons } from '../../../constants';
 
@@ -138,8 +138,8 @@ const MaternityVisitModule: React.FC<MaternityVisitModuleProps> = ({ onBack }) =
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className={`text-xs font-bold px-2 py-1 rounded ${visit.risk_level === 'Alto' ? 'bg-red-100 text-red-700' :
-                                                    visit.risk_level === 'Médio' ? 'bg-yellow-100 text-yellow-700' :
-                                                        'bg-green-100 text-green-700'
+                                                visit.risk_level === 'Médio' ? 'bg-yellow-100 text-yellow-700' :
+                                                    'bg-green-100 text-green-700'
                                                 }`}>
                                                 {visit.risk_level}
                                             </span>

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Icons } from '../../constants';
 import { IndicatorsPage } from '../../types';
 import { adminService, KpiMetric, KpiChart, KpiGoal } from '../../services/adminService';
@@ -133,7 +133,7 @@ const AdminIndicatorsModule: React.FC<AdminIndicatorsModuleProps> = ({ onBack })
                                     </div>
                                     <p className="text-3xl font-bold text-gray-900">{metric.value}</p>
                                     <span className={`text-xs flex items-center gap-1 mt-1 ${metric.trend_color === 'red' ? 'text-red-500' :
-                                            metric.trend_color === 'green' ? 'text-green-500' : 'text-gray-400'
+                                        metric.trend_color === 'green' ? 'text-green-500' : 'text-gray-400'
                                         }`}>
                                         {getTrendIcon(metric.trend)} {metric.trend_label}
                                     </span>
@@ -251,7 +251,7 @@ const AdminIndicatorsModule: React.FC<AdminIndicatorsModuleProps> = ({ onBack })
                                 </h3>
                                 <div className="flex-1 bg-gray-100 rounded-lg flex items-center justify-center relative overflow-hidden group">
                                     {/* Mock Map Visual */}
-                                    <div className="absolute inset-0 opacity-20 bg-[url('https://upload.wikimedia.org/wikipedia/commons/e/ec/Map_of_New_York_City_location_map.png')] bg-cover bg-center"></div>
+                                    <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:16px_16px]"></div>
                                     <div className="absolute top-1/4 left-1/3 w-16 h-16 bg-red-500/30 rounded-full blur-xl animate-pulse"></div>
                                     <div className="absolute bottom-1/3 right-1/4 w-24 h-24 bg-orange-500/30 rounded-full blur-xl"></div>
                                     <p className="relative z-10 text-gray-500 font-medium">Visualização Georreferenciada de Casos</p>
