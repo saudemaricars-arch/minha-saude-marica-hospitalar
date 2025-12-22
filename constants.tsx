@@ -294,11 +294,43 @@ export const Icons: Record<string, React.FC<{ className?: string }>> = {
 };
 
 export const HEALTH_UNITS: HealthUnit[] = [
-  { id: '1', name: 'Hospital Geral Central', type: 'Hospital' },
-  { id: '2', name: 'UPA Zona Norte', type: 'UPA' },
-  { id: '3', name: 'Maternidade Santa Clara', type: 'Maternidade' },
-  { id: '4', name: 'UBS Jardim das Flores', type: 'UBS' },
-  { id: '5', name: 'Laboratório Central', type: 'Laboratório' },
+  // Hospitais e Emergências
+  { id: '1', name: 'Hospital Municipal Conde Modesto Leal', type: 'Hospital' },
+  { id: '2', name: 'Hospital Municipal Dr. Ernesto Che Guevara', type: 'Hospital' },
+  { id: '3', name: 'UPA 24h Inoã', type: 'UPA' },
+  { id: '4', name: 'Unidade de Emergência Santa Rita', type: 'Emergência' },
+
+  // Atenção Especializada
+  { id: '5', name: 'Maternidade Municipal', type: 'Maternidade' },
+  { id: '6', name: 'Laboratório Central de Maricá', type: 'Laboratório' },
+  { id: '7', name: 'Centro de Diagnóstico por Imagem', type: 'Diagnóstico' },
+
+  // CAPS - Saúde Mental
+  { id: '8', name: 'CAPS II - Centro', type: 'CAPS' },
+  { id: '9', name: 'CAPS AD - Álcool e Drogas', type: 'CAPS' },
+  { id: '10', name: 'CAPS i - Infantojuvenil', type: 'CAPS' },
+
+  // USF - Unidades de Saúde da Família (Região Centro)
+  { id: '11', name: 'USF Centro', type: 'USF' },
+  { id: '12', name: 'USF Mumbuca', type: 'USF' },
+  { id: '13', name: 'USF Caxito', type: 'USF' },
+  { id: '14', name: 'USF Ponta da Preguiça', type: 'USF' },
+
+  // USF - Região Inoã/Itaipuaçu
+  { id: '15', name: 'USF Inoã I', type: 'USF' },
+  { id: '16', name: 'USF Inoã II', type: 'USF' },
+  { id: '17', name: 'USF Barroco', type: 'USF' },
+  { id: '18', name: 'USF Jardim Atlântico', type: 'USF' },
+  { id: '19', name: 'USF Recanto', type: 'USF' },
+  { id: '20', name: 'USF Santa Rita', type: 'USF' },
+
+  // USF - Região Costeira/Ponta Negra
+  { id: '21', name: 'USF Ponta Negra', type: 'USF' },
+  { id: '22', name: 'USF Bambuí', type: 'USF' },
+  { id: '23', name: 'USF Espraiado', type: 'USF' },
+  { id: '24', name: 'USF Cordeirinho', type: 'USF' },
+
+  // Administração
   { id: 'master', name: 'Gestão Central (Secretaria)', type: 'Administrativo' },
 ];
 

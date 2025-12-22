@@ -13,50 +13,102 @@ interface MasterUnitMonitorProps {
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
-// --- MOCK DATA FOR DETAILED VIEW ---
-const MOCK_HOURLY_FLOW = [
-    { time: '06:00', entrada: 5, saida: 2, espera: 10 },
-    { time: '08:00', entrada: 12, saida: 5, espera: 18 },
-    { time: '10:00', entrada: 25, saida: 8, espera: 35 },
-    { time: '12:00', entrada: 20, saida: 15, espera: 40 },
-    { time: '14:00', entrada: 18, saida: 12, espera: 32 },
-    { time: '16:00', entrada: 28, saida: 10, espera: 45 },
-    { time: '18:00', entrada: 35, saida: 5, espera: 60 },
-    { time: '20:00', entrada: 22, saida: 18, espera: 40 },
-];
+// --- DYNAMIC MOCK DATA GENERATORS ---
 
-const MOCK_STAFF_SCALES = [
-    { role: 'Médicos Clínicos', total: 5, active: 4, break: 1, missing: 0 },
-    { role: 'Enfermeiros', total: 12, active: 10, break: 2, missing: 0 },
-    { role: 'Técnicos Enf.', total: 20, active: 18, break: 1, missing: 1 },
-    { role: 'Cirurgiões', total: 3, active: 1, break: 0, missing: 2 }, // Critical
-    { role: 'Pediatras', total: 4, active: 4, break: 0, missing: 0 },
-];
+const getMockFlow = (id: string) => {
+    // Generate slightly different flow curves based on ID
+    const seed = parseInt(id) || 1;
+    const base = seed % 2 === 0 ? 1 : 0.8;
 
-const MOCK_SUPPLIES = [
-    { name: 'Soro Fisiológico 0.9%', stock: 85, status: 'Normal', lastRestock: '2 dias' },
-    { name: 'Dipirona Injetável', stock: 12, status: 'Crítico', lastRestock: '15 dias' },
-    { name: 'Ceftriaxona', stock: 45, status: 'Atenção', lastRestock: '5 dias' },
-    { name: 'Luvas P', stock: 90, status: 'Normal', lastRestock: '1 dia' },
-    { name: 'Máscaras N95', stock: 30, status: 'Atenção', lastRestock: '7 dias' },
-];
+    return [
+        { time: '06:00', entrada: Math.floor(5 * base), saida: Math.floor(2 * base), espera: Math.floor(10 * base) },
+        { time: '08:00', entrada: Math.floor(12 * base), saida: Math.floor(5 * base), espera: Math.floor(18 * base) },
+        { time: '10:00', entrada: Math.floor(25 * base), saida: Math.floor(8 * base), espera: Math.floor(35 * base) },
+        { time: '12:00', entrada: Math.floor(20 * base), saida: Math.floor(15 * base), espera: Math.floor(40 * base) },
+        { time: '14:00', entrada: Math.floor(18 * base), saida: Math.floor(12 * base), espera: Math.floor(32 * base) },
+        { time: '16:00', entrada: Math.floor(28 * base), saida: Math.floor(10 * base), espera: Math.floor(45 * base) },
+        { time: '18:00', entrada: Math.floor(35 * base), saida: Math.floor(5 * base), espera: Math.floor(60 * base) },
+        { time: '20:00', entrada: Math.floor(22 * base), saida: Math.floor(18 * base), espera: Math.floor(40 * base) },
+    ];
+};
 
-const MOCK_EQUIPMENT_STATUS = [
-    { name: 'Tomógrafo', status: 'Operacional', lastMaintenance: '10/05' },
-    { name: 'Raio-X 01', status: 'Manutenção', lastMaintenance: 'Hoje' },
-    { name: 'Raio-X 02', status: 'Operacional', lastMaintenance: '20/04' },
-    { name: 'Respiradores', total: 15, available: 12, inUse: 3 },
-];
+const getStaffMock = (type: string) => {
+    if (type === 'Hospital' || type === 'Emergência' || type === 'UPA') {
+        return [
+            { role: 'Médicos Clínicos', total: 5, active: 4, break: 1, missing: 0 },
+            { role: 'Enfermeiros', total: 12, active: 10, break: 2, missing: 0 },
+            { role: 'Técnicos Enf.', total: 20, active: 18, break: 1, missing: 1 },
+            { role: 'Cirurgiões', total: 3, active: 1, break: 0, missing: 2 },
+            { role: 'Pediatras', total: 4, active: 4, break: 0, missing: 0 },
+        ];
+    } else if (type === 'Maternidade') {
+        return [
+            { role: 'Obstetras', total: 6, active: 5, break: 1, missing: 0 },
+            { role: 'Enfermeiros Obs.', total: 10, active: 9, break: 1, missing: 0 },
+            { role: 'Neonatologistas', total: 3, active: 3, break: 0, missing: 0 },
+            { role: 'Técnicos Enf.', total: 15, active: 14, break: 1, missing: 0 },
+            { role: 'Anestesistas', total: 2, active: 2, break: 0, missing: 0 },
+        ];
+    } else {
+        // USF, CAPS, Lab
+        return [
+            { role: 'Médico de Família', total: 2, active: 2, break: 0, missing: 0 },
+            { role: 'Enfermeiros', total: 3, active: 3, break: 0, missing: 0 },
+            { role: 'Técnicos Enf.', total: 4, active: 4, break: 0, missing: 0 },
+            { role: 'ACS', total: 6, active: 5, break: 0, missing: 1 },
+            { role: 'Admin/Recepção', total: 2, active: 2, break: 0, missing: 0 },
+        ];
+    }
+};
+
+const getInfraMock = (type: string) => {
+    if (type === 'Hospital' || type === 'Emergência') {
+        return [
+            { name: 'Tomógrafo', status: 'Operacional', lastMaintenance: '10/05' },
+            { name: 'Raio-X 01', status: 'Manutenção', lastMaintenance: 'Hoje' },
+            { name: 'Raio-X 02', status: 'Operacional', lastMaintenance: '20/04' },
+            { name: 'Respiradores', total: 15, available: 12, inUse: 3 },
+        ];
+    } else if (type === 'Laboratório') {
+        return [
+            { name: 'Analisador Bioquímico', status: 'Operacional', lastMaintenance: '10/05' },
+            { name: 'Centrífuga A', status: 'Operacional', lastMaintenance: '15/05' },
+            { name: 'Microscópios', total: 8, available: 8, inUse: 6 },
+            { name: 'Refrigeradores', total: 4, available: 4, inUse: 4 },
+        ];
+    } else {
+        // USF, CAPS
+        return [
+            { name: 'Consultório Odonto', status: 'Operacional', lastMaintenance: '02/05' },
+            { name: 'Sala de Vacina', status: 'Operacional', lastMaintenance: '10/05' },
+            { name: 'Eletrocardiograma', status: 'Manutenção', lastMaintenance: 'Ontem' },
+            { name: 'Veículo da Unidade', total: 1, available: 1, inUse: 0 },
+        ];
+    }
+};
 
 const MasterUnitMonitor: React.FC<MasterUnitMonitorProps> = ({ unit, onBack }) => {
     const [activeTab, setActiveTab] = useState<'geral' | 'recursos_humanos' | 'insumos' | 'infra'>('geral');
     const [isLoading, setIsLoading] = useState(true);
 
+    // Derived State based on Unit Type
+    const staffData = getStaffMock(unit.type);
+    const infraData = getInfraMock(unit.type);
+    const flowData = getMockFlow(unit.id);
+
+    // Static supplies for now, could be dynamic too
+    const suppliesData = [
+        { name: 'Soro Fisiológico 0.9%', stock: 85, status: 'Normal', lastRestock: '2 dias' },
+        { name: 'Dipirona Injetável', stock: 12, status: 'Crítico', lastRestock: '15 dias' },
+        { name: 'Luvas P', stock: 90, status: 'Normal', lastRestock: '1 dia' },
+        { name: 'Máscaras N95', stock: 30, status: 'Atenção', lastRestock: '7 dias' },
+    ];
+
     // Simulate loading for premium feel
     useEffect(() => {
         const timer = setTimeout(() => setIsLoading(false), 800);
         return () => clearTimeout(timer);
-    }, []);
+    }, [unit.id]); // Re-run if unit changes
 
     const renderLoadScreen = () => (
         <div className="flex-1 flex flex-col items-center justify-center bg-gray-50 h-full min-h-[500px]">
@@ -184,7 +236,7 @@ const MasterUnitMonitor: React.FC<MasterUnitMonitorProps> = ({ unit, onBack }) =
                             <h3 className="text-lg font-bold text-gray-900 mb-6">Fluxo de Atendimento (Entradas vs Saídas)</h3>
                             <div className="h-80">
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={MOCK_HOURLY_FLOW}>
+                                    <AreaChart data={flowData}>
                                         <defs>
                                             <linearGradient id="colorEntrada" x1="0" y1="0" x2="0" y2="1">
                                                 <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.1} />
@@ -215,10 +267,10 @@ const MasterUnitMonitor: React.FC<MasterUnitMonitorProps> = ({ unit, onBack }) =
                                         <div className="p-1.5 bg-red-100 rounded text-red-600">
                                             <Icons.AlertTriangle className="w-4 h-4" />
                                         </div>
-                                        <span className="font-bold text-red-800 text-sm">Superlotação UTI</span>
+                                        <span className="font-bold text-red-800 text-sm">Superlotação</span>
                                     </div>
                                     <p className="text-xs text-red-700 leading-relaxed">
-                                        Capacidade esgotada. 2 pacientes entubados na Sala Vermelha aguardando leito.
+                                        Capacidade esgotada. Pacientes aguardando.
                                     </p>
                                     <button className="mt-3 text-xs w-full py-1.5 bg-white border border-red-200 text-red-700 font-semibold rounded hover:bg-red-50 transition-colors">
                                         Ver Detalhes
@@ -233,7 +285,7 @@ const MasterUnitMonitor: React.FC<MasterUnitMonitorProps> = ({ unit, onBack }) =
                                         <span className="font-bold text-yellow-800 text-sm">Estoque Dipirona</span>
                                     </div>
                                     <p className="text-xs text-yellow-700 leading-relaxed">
-                                        Estoque crítico. Estimativa de duração: 4 horas. Pedido emergencial necessário.
+                                        Estoque crítico. Estimativa de duração: 4 horas.
                                     </p>
                                 </div>
                             </div>
@@ -261,7 +313,7 @@ const MasterUnitMonitor: React.FC<MasterUnitMonitorProps> = ({ unit, onBack }) =
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
-                                {MOCK_STAFF_SCALES.map((row, idx) => (
+                                {staffData.map((row, idx) => (
                                     <tr key={idx} className="hover:bg-gray-50 transition-colors">
                                         <td className="px-6 py-4 font-medium text-gray-900">{row.role}</td>
                                         <td className="px-6 py-4 text-center">{row.total}</td>
@@ -296,7 +348,7 @@ const MasterUnitMonitor: React.FC<MasterUnitMonitorProps> = ({ unit, onBack }) =
                         </div>
                     </div>
                     <div className="grid grid-cols-1 gap-4">
-                        {MOCK_SUPPLIES.map((item, idx) => (
+                        {suppliesData.map((item, idx) => (
                             <div key={idx} className="flex items-center justify-between p-4 border rounded-lg hover:shadow-md transition-shadow">
                                 <div className="flex items-center gap-4">
                                     <div className={`p-3 rounded-lg ${item.status === 'Crítico' ? 'bg-red-100 text-red-600' : item.status === 'Atenção' ? 'bg-yellow-100 text-yellow-600' : 'bg-green-100 text-green-600'}`}>
@@ -328,7 +380,7 @@ const MasterUnitMonitor: React.FC<MasterUnitMonitorProps> = ({ unit, onBack }) =
             {/* TAB: INFRAESTRUTURA */}
             {activeTab === 'infra' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {MOCK_EQUIPMENT_STATUS.map((eq, idx) => (
+                    {infraData.map((eq, idx) => (
                         <div key={idx} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                             <div className="flex justify-between items-start mb-4">
                                 <div>

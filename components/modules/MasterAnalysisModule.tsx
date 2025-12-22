@@ -25,13 +25,7 @@ const MOCK_GLOBAL_FLOW = [
     { name: '20h', hospital: 70, upa: 90, ubs: 40 },
 ];
 
-const MOCK_UNIT_STATUS = {
-    '1': { occupancy: 92, waitTime: '4h', trend: 'up' }, // Hospital Geral
-    '2': { occupancy: 85, waitTime: '2h', trend: 'stable' }, // UPA
-    '3': { occupancy: 45, waitTime: '40m', trend: 'down' }, // Maternidade
-    '4': { occupancy: 30, waitTime: '15m', trend: 'stable' }, // UBS
-    '5': { occupancy: 60, waitTime: '1h', trend: 'up' }, // Lab
-};
+
 
 interface MasterAnalysisModuleProps {
     onBack: () => void;
@@ -160,11 +154,16 @@ const MasterAnalysisModule: React.FC<MasterAnalysisModuleProps> = ({ onBack }) =
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {HEALTH_UNITS.map(unit => {
-                    if (unit.id === 'master' || unit.id.startsWith('0000')) return null;
+                    if (unit.id === 'master') return null;
 
-                    // Get mock status
-                    // @ts-ignore
-                    const status = MOCK_UNIT_STATUS[unit.id] || { occupancy: 50, waitTime: '30m', trend: 'stable' };
+                    // Dynamic Mock Data generator based on Unit ID to ensure consistency without hardcoding
+                    const seed = parseInt(unit.id) * 123;
+                    const occupancy = (seed % 40) + 50; // Random mock occupancy between 50 and 90
+                    const waitTimeSeed = seed % 3;
+                    const waitTime = waitTimeSeed === 0 ? '30m' : waitTimeSeed === 1 ? '1h 15m' : '15m';
+                    const trend = occupancy > 85 ? 'up' : occupancy < 60 ? 'down' : 'stable';
+
+                    const status = { occupancy, waitTime, trend };
                     const isHighOccupancy = status.occupancy > 80;
 
                     return (
@@ -176,7 +175,11 @@ const MasterAnalysisModule: React.FC<MasterAnalysisModuleProps> = ({ onBack }) =
                             {isHighOccupancy && <div className="absolute top-0 right-0 w-2 h-full bg-red-500"></div>}
 
                             <div className="flex items-center justify-between mb-4">
-                                <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${unit.type === 'Hospital' ? 'bg-purple-100 text-purple-700' : 'bg-blue-50 text-blue-700'}`}>
+                                <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${unit.type === 'Hospital' || unit.type === 'Emergência' ? 'bg-purple-100 text-purple-700' :
+                                    unit.type === 'UPA' ? 'bg-red-50 text-red-700' :
+                                        unit.type === 'Maternidade' ? 'bg-pink-50 text-pink-700' :
+                                            'bg-blue-50 text-blue-700'
+                                    }`}>
                                     {unit.type}
                                 </span>
                                 {isHighOccupancy ? (
@@ -192,7 +195,7 @@ const MasterAnalysisModule: React.FC<MasterAnalysisModuleProps> = ({ onBack }) =
                                 )}
                             </div>
 
-                            <h3 className="text-lg font-bold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">{unit.name}</h3>
+                            <h3 className="text-lg font-bold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors line-clamp-1" title={unit.name}>{unit.name}</h3>
                             <p className="text-sm text-gray-500 mb-6">Monitoramento ativo • {status.waitTime} espera</p>
 
                             <div className="space-y-3">
