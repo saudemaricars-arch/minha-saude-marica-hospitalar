@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { vaccinationService, VaccinationPatient } from '../../../services/vaccinationService';
-import { MOCK_VACCINES, Icons } from '../../../constants';
+import { vaccinationService, VaccinationPatient, Vaccine } from '../../../services/vaccinationService';
+import { Icons } from '../../../constants';
 
 interface VaccinationModuleProps {
     onBack: () => void;
@@ -10,12 +10,32 @@ interface VaccinationModuleProps {
 const VaccinationModule: React.FC<VaccinationModuleProps> = ({ onBack }) => {
     const [activeTab, setActiveTab] = useState<'dashboard' | 'patients' | 'stock' | 'campaigns'>('patients');
     const [patients, setPatients] = useState<VaccinationPatient[]>([]);
+    const [vaccines, setVaccines] = useState<Vaccine[]>([]); // Real vaccines
     const [selectedPatient, setSelectedPatient] = useState<VaccinationPatient | null>(null);
 
     // Fetch Data
     useEffect(() => {
-        loadPatients();
+        loadData();
     }, []);
+
+    const loadData = async () => {
+        await Promise.all([loadPatients(), loadStock()]);
+    };
+
+    const loadStock = async () => {
+        try {
+            const data = await vaccinationService.fetchVaccines();
+            setVaccines(data);
+        } catch (error) {
+            console.error('Error loading stock:', error);
+        }
+    };
+
+    // Create Modal States
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isStockModalOpen, setIsStockModalOpen] = useState(false);
+    const [newPatient, setNewPatient] = useState<Partial<VaccinationPatient>>({});
+    const [newVaccine, setNewVaccine] = useState<Partial<Vaccine>>({});
 
     const loadPatients = async () => {
         try {
@@ -43,14 +63,10 @@ const VaccinationModule: React.FC<VaccinationModuleProps> = ({ onBack }) => {
         return `${Math.floor(months / 12)} anos`;
     };
 
-    // Create Modal
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [newPatient, setNewPatient] = useState<Partial<VaccinationPatient>>({});
-
     // Helper Stats
     const totalDosesToday = 45;
-    const delayedPatients = patients.filter(p => p.delayedVaccines > 0).length;
-    const lowStockItems = MOCK_VACCINES.filter(v => v.stockLevel < 30).length;
+    const delayedPatients = patients.filter(p => p.delayedVaccines && p.delayedVaccines > 0).length;
+    const lowStockItems = vaccines.filter(v => v.stock_level < 30).length;
 
     const getStatusBadge = (status: string) => {
         switch (status) {
@@ -61,14 +77,14 @@ const VaccinationModule: React.FC<VaccinationModuleProps> = ({ onBack }) => {
         }
     };
 
-    const handleSave = async (e: React.FormEvent) => {
+    const handleSavePatient = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newPatient.name || !newPatient.cns) return;
+        if (!newPatient.name) return; // CNS optional if need be, but usually required. Let's make it more flexible.
 
         try {
             await vaccinationService.createPatient({
                 name: newPatient.name,
-                cns: newPatient.cns,
+                cns: newPatient.cns || 'S/N', // Handle missing CNS
                 birth_date: newPatient.birth_date || new Date().toISOString().split('T')[0]
             });
 
@@ -78,6 +94,26 @@ const VaccinationModule: React.FC<VaccinationModuleProps> = ({ onBack }) => {
         } catch (error: any) {
             console.error('Error creating patient:', error);
             alert('Erro ao salvar paciente: ' + (error.message || 'Erro desconhecido'));
+        }
+    };
+
+    const handleSaveVaccine = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newVaccine.name || !newVaccine.batch) return;
+
+        try {
+            await vaccinationService.addVaccine({
+                name: newVaccine.name,
+                batch: newVaccine.batch,
+                expiration_date: newVaccine.expiration_date || new Date().toISOString().split('T')[0],
+                stock_level: Number(newVaccine.stock_level) || 0
+            });
+            setIsStockModalOpen(false);
+            setNewVaccine({});
+            loadStock();
+        } catch (error: any) {
+            console.error('Error adding vaccine:', error);
+            alert('Erro ao adicionar vacina: ' + error.message);
         }
     };
 
@@ -203,8 +239,14 @@ const VaccinationModule: React.FC<VaccinationModuleProps> = ({ onBack }) => {
             case 'stock':
                 return (
                     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden animate-fade-in">
-                        <div className="p-4 bg-gray-50 border-b border-gray-200">
+                        <div className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
                             <h3 className="font-bold text-gray-800">Estoque de Imunobiológicos</h3>
+                            <button
+                                onClick={() => setIsStockModalOpen(true)}
+                                className="flex items-center gap-2 px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm font-bold shadow-sm"
+                            >
+                                <Icons.PlusCircle className="w-4 h-4" /> Adicionar Vacina
+                            </button>
                         </div>
                         <table className="w-full text-left">
                             <thead className="bg-white border-b border-gray-200 text-xs uppercase text-gray-500 font-semibold">
@@ -217,22 +259,30 @@ const VaccinationModule: React.FC<VaccinationModuleProps> = ({ onBack }) => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 text-sm">
-                                {MOCK_VACCINES.map(v => (
-                                    <tr key={v.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 font-bold text-gray-900">{v.name}</td>
-                                        <td className="px-6 py-4 font-mono text-gray-600">{v.batch}</td>
-                                        <td className="px-6 py-4 text-gray-600">{v.expirationDate}</td>
-                                        <td className="px-6 py-4 text-center font-bold text-lg">{v.stockLevel}</td>
-                                        <td className="px-6 py-4 text-center">
-                                            <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${v.status === 'Available' ? 'bg-green-100 text-green-700' :
-                                                v.status === 'Low' ? 'bg-yellow-100 text-yellow-700' :
-                                                    'bg-red-100 text-red-700'
-                                                }`}>
-                                                {v.status === 'Available' ? 'Normal' : v.status === 'Low' ? 'Baixo' : 'Vencido'}
-                                            </span>
+                                {vaccines.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                                            Nenhuma vacina cadastrada no estoque.
                                         </td>
                                     </tr>
-                                ))}
+                                ) : (
+                                    vaccines.map(v => (
+                                        <tr key={v.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 font-bold text-gray-900">{v.name}</td>
+                                            <td className="px-6 py-4 font-mono text-gray-600">{v.batch}</td>
+                                            <td className="px-6 py-4 text-gray-600">{new Date(v.expiration_date).toLocaleDateString()}</td>
+                                            <td className="px-6 py-4 text-center font-bold text-lg">{v.stock_level}</td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${v.stock_level > 50 ? 'bg-green-100 text-green-700' :
+                                                        v.stock_level > 0 ? 'bg-yellow-100 text-yellow-700' :
+                                                            'bg-red-100 text-red-700'
+                                                    }`}>
+                                                    {v.stock_level === 0 ? 'Esgotado' : v.stock_level < 50 ? 'Baixo' : 'Normal'}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
                             </tbody>
                         </table>
                     </div>
@@ -366,66 +416,127 @@ const VaccinationModule: React.FC<VaccinationModuleProps> = ({ onBack }) => {
                     </div>
                 )}
 
-                {/* New Patient Modal */}
+                {/* New Patient Modal - Simplified */}
                 {isModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
-                            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-                                <h3 className="font-bold text-gray-800">Novo Cadastro Vacinal</h3>
+                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden">
+                            <div className="px-5 py-3 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                                <h3 className="font-bold text-gray-800">Novo Cadastro</h3>
                                 <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
-                                    <Icons.XCircle className="w-6 h-6" />
+                                    <Icons.XCircle className="w-5 h-5" />
                                 </button>
                             </div>
 
-                            <form onSubmit={handleSave} className="p-6 space-y-4">
+                            <form onSubmit={handleSavePatient} className="p-5 space-y-3">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Nome Completo</label>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome da Criança</label>
                                     <input
                                         type="text"
                                         required
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
+                                        placeholder="Nome Completo"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none"
                                         value={newPatient.name || ''}
                                         onChange={e => setNewPatient({ ...newPatient, name: e.target.value })}
                                     />
                                 </div>
 
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">CNS (Opcional)</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Cartão SUS"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                                            value={newPatient.cns || ''}
+                                            onChange={e => setNewPatient({ ...newPatient, cns: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nascimento</label>
+                                        <input
+                                            type="date"
+                                            required
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                                            value={newPatient.birth_date || ''}
+                                            onChange={e => setNewPatient({ ...newPatient, birth_date: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    className="w-full py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-bold shadow-sm transition-colors mt-2"
+                                >
+                                    Salvar Cadastro
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                )}
+
+                {/* New Vaccine Stock Modal */}
+                {isStockModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden">
+                            <div className="px-5 py-3 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                                <h3 className="font-bold text-gray-800">Adicionar ao Estoque</h3>
+                                <button onClick={() => setIsStockModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                                    <Icons.XCircle className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            <form onSubmit={handleSaveVaccine} className="p-5 space-y-3">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Cartão SUS (CNS)</label>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome da Vacina</label>
                                     <input
                                         type="text"
                                         required
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
-                                        value={newPatient.cns || ''}
-                                        onChange={e => setNewPatient({ ...newPatient, cns: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                                        value={newVaccine.name || ''}
+                                        onChange={e => setNewVaccine({ ...newVaccine, name: e.target.value })}
                                     />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Lote</label>
+                                        <input
+                                            type="text"
+                                            required
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                                            value={newVaccine.batch || ''}
+                                            onChange={e => setNewVaccine({ ...newVaccine, batch: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Validade</label>
+                                        <input
+                                            type="date"
+                                            required
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                                            value={newVaccine.expiration_date || ''}
+                                            onChange={e => setNewVaccine({ ...newVaccine, expiration_date: e.target.value })}
+                                        />
+                                    </div>
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Data de Nascimento</label>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Quantidade (Doses)</label>
                                     <input
-                                        type="date"
+                                        type="number"
                                         required
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
-                                        value={newPatient.birth_date || ''}
-                                        onChange={e => setNewPatient({ ...newPatient, birth_date: e.target.value })}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                                        value={newVaccine.stock_level || ''}
+                                        onChange={e => setNewVaccine({ ...newVaccine, stock_level: Number(e.target.value) })}
                                     />
                                 </div>
 
-                                <div className="pt-4 flex gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsModalOpen(false)}
-                                        className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
-                                    >
-                                        Cancelar
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        className="flex-1 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-bold shadow-sm transition-colors"
-                                    >
-                                        Criar Cartão
-                                    </button>
-                                </div>
+                                <button
+                                    type="submit"
+                                    className="w-full py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-bold shadow-sm transition-colors mt-2"
+                                >
+                                    Confirmar Entrada
+                                </button>
                             </form>
                         </div>
                     </div>

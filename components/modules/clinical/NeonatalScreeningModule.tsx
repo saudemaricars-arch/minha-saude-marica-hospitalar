@@ -14,6 +14,8 @@ const NeonatalScreeningModule: React.FC<NeonatalScreeningModuleProps> = ({ onBac
     const [selectedPatient, setSelectedPatient] = useState<NeonatalPatient | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [newBaby, setNewBaby] = useState<Partial<NeonatalPatient>>({});
+    const [isEditResultsOpen, setIsEditResultsOpen] = useState(false);
+    const [editResults, setEditResults] = useState<any>({});
 
     // Fetch Data
     useEffect(() => {
@@ -184,7 +186,7 @@ const NeonatalScreeningModule: React.FC<NeonatalScreeningModuleProps> = ({ onBac
                             </thead>
                             <tbody className="divide-y divide-gray-100 text-sm">
                                 {patients.map(patient => (
-                                    <tr key={patient.id} className="hover:bg-pink-50/30 transition-colors cursor-pointer" onClick={() => setSelectedPatient(patient)}>
+                                    <tr key={patient.id} className="hover:bg-pink-50/30 transition-colors cursor-pointer" onClick={() => { setSelectedPatient(patient); setEditResults(JSON.parse(JSON.stringify(patient.tests))); }}>
                                         <td className="px-6 py-4">
                                             <div className="font-bold text-gray-900">{patient.name}</div>
                                             <div className="text-xs text-gray-500">Mãe: {patient.mother_name}</div>
@@ -417,6 +419,68 @@ const NeonatalScreeningModule: React.FC<NeonatalScreeningModuleProps> = ({ onBac
                                 <button className="px-4 py-2 bg-pink-600 text-white font-bold rounded-lg hover:bg-pink-700 shadow-sm flex items-center gap-2">
                                     <Icons.Edit className="w-4 h-4" /> Editar Resultados
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Edit Results Modal */}
+                {isEditResultsOpen && selectedPatient && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+                        <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
+                            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                                <h3 className="font-bold text-gray-800">Editar Resultados</h3>
+                                <button onClick={() => setIsEditResultsOpen(false)} className="text-gray-400 hover:text-gray-600">
+                                    <Icons.XCircle className="w-6 h-6" />
+                                </button>
+                            </div>
+                            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                                {['pezinho', 'orelhinha', 'olhinho', 'coracaozinho', 'linguinha'].map((testKey) => (
+                                    <div key={testKey} className="border-b border-gray-100 pb-4">
+
+                                        <div className="flex justify-between items-center mb-2">
+                                            <h4 className="font-bold capitalize text-gray-700">{testKey}</h4>
+                                            <select
+                                                className="text-sm border border-gray-300 rounded px-2 py-1"
+                                                value={editResults[testKey]?.status || 'Pendente'}
+                                                onChange={(e) => setEditResults({
+                                                    ...editResults,
+                                                    [testKey]: { ...editResults[testKey], status: e.target.value }
+                                                })}
+                                            >
+                                                <option value="Pendente">Pendente</option>
+                                                <option value="Normal">Normal</option>
+                                                <option value="Alterado">Alterado</option>
+                                                <option value="Inconclusivo">Inconclusivo</option>
+                                            </select>
+                                        </div>
+                                        <textarea
+                                            placeholder="Observações..."
+                                            className="w-full text-sm border border-gray-300 rounded p-2"
+                                            value={editResults[testKey]?.notes || ''}
+                                            onChange={(e) => setEditResults({
+                                                ...editResults,
+                                                [testKey]: { ...editResults[testKey], notes: e.target.value }
+                                            })}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="p-6 border-t border-gray-200 flex justify-end gap-2 bg-gray-50">
+                                <button onClick={() => setIsEditResultsOpen(false)} className="px-4 py-2 border rounded text-gray-600 hover:bg-white">Cancelar</button>
+                                <button onClick={async () => {
+                                    // Update logic here (mocked or service call)
+                                    // Assuming we just update local state for now or call service
+                                    try {
+                                        // In real app: await service.updateTests(selectedPatient.id, editResults);
+                                        // For now update local state to reflect changes
+                                        const updatedPatient = { ...selectedPatient, tests: editResults };
+                                        setPatients(prev => prev.map(p => p.id === selectedPatient.id ? updatedPatient : p));
+                                        setSelectedPatient(updatedPatient);
+                                        setIsEditResultsOpen(false);
+                                        alert('Resultados atualizados!');
+                                    } catch (e) { console.error(e); }
+                                }} className="px-4 py-2 bg-pink-600 text-white rounded font-bold hover:bg-pink-700">Salvar Alterações</button>
                             </div>
                         </div>
                     </div>

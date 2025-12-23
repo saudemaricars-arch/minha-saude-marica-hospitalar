@@ -3,22 +3,13 @@ import React, { useState, useMemo } from 'react';
 import { Icons, HEALTH_UNITS } from '../../../constants';
 import { User } from '../../../types';
 
-// Initial Mock Data moved outside component to serve as initial state
-const INITIAL_USERS: User[] = [
-  { id: '1', name: 'Dr. Roberto Silva', role: 'Médico', email: 'roberto.silva@hosp.marica.gov.br', status: 'active', lastAccess: '10 min atrás', department: 'Clínica Médica', unitId: '1' },
-  { id: '2', name: 'Enf. Juliana Costa', role: 'Enfermeiro', email: 'juliana.costa@hosp.marica.gov.br', status: 'active', lastAccess: '2 horas atrás', department: 'Emergência', unitId: '1' },
-  { id: '3', name: 'Carlos Admin', role: 'Administrador', email: 'carlos.ti@saude.marica.gov.br', status: 'active', lastAccess: 'Agora', department: 'TI', unitId: '0' },
-  { id: '4', name: 'Dra. Ana Paula', role: 'Médico', email: 'ana.paula@upa.marica.gov.br', status: 'inactive', lastAccess: '2 dias atrás', department: 'Pediatria', unitId: '2' },
-  { id: '5', name: 'Tec. Marcos Souza', role: 'Técnico', email: 'marcos.s@hosp.marica.gov.br', status: 'suspended', lastAccess: '1 semana atrás', department: 'Triagem', unitId: '1' },
-  { id: '6', name: 'Fernanda Lima', role: 'Recepcionista', email: 'fernanda.l@upa.marica.gov.br', status: 'active', lastAccess: '15 min atrás', department: 'Recepção', unitId: '2' },
-  { id: '7', name: 'Dr. João Pedro', role: 'Médico', email: 'joao.pedro@hosp.marica.gov.br', status: 'active', lastAccess: 'Ontem', department: 'Cirurgia', unitId: '1' },
-];
+import { supabase } from '../../../services/supabaseClient';
 
 const ROLES = ['Todos os Perfis', 'Médico', 'Enfermeiro', 'Técnico', 'Administrador', 'Recepcionista'];
 
 const UserList: React.FC = () => {
   // --- State Management ---
-  const [users, setUsers] = useState<User[]>(INITIAL_USERS);
+  const [users, setUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('Todos os Perfis');
   const [unitFilter, setUnitFilter] = useState('Todas as Unidades');
@@ -35,12 +26,13 @@ const UserList: React.FC = () => {
   // --- Filtering Logic ---
   const filteredUsers = useMemo(() => {
     return users.filter(user => {
-      const matchesSearch = 
-        user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        user.email.toLowerCase().includes(searchTerm.toLowerCase());
-      
+      const matchesSearch =
+        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (user.cpf && user.cpf.includes(searchTerm));
+
       const matchesRole = roleFilter === 'Todos os Perfis' || user.role === roleFilter;
-      
+
       const unitName = HEALTH_UNITS.find(u => u.id === user.unitId)?.name || '';
       const matchesUnit = unitFilter === 'Todas as Unidades' || unitName === unitFilter;
 
@@ -56,6 +48,34 @@ const UserList: React.FC = () => {
   );
 
   // --- Handlers ---
+
+  // --- Fetch Users ---
+  const fetchUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+      if (data) {
+        // Map DB fields to UI fields if necessary (DB snake_case to CamelCase usually handled, but here types match mostly)
+        // Ensure unitId is mapped correctly if DB uses unit_id
+        const mappedUsers: User[] = data.map((u: any) => ({
+          ...u,
+          unitId: u.unit_id, // Map DB unit_id to frontend unitId
+          lastAccess: u.last_access ? new Date(u.last_access).toLocaleDateString() : 'Nunca'
+        }));
+        setUsers(mappedUsers);
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchUsers();
+  }, []);
 
   const handleOpenAdd = () => {
     setCurrentUser({ status: 'active', role: 'Médico', unitId: '1' }); // Defaults
@@ -79,22 +99,38 @@ const UserList: React.FC = () => {
     setIsDeleteModalOpen(true);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (isEditing) {
-      setUsers(prev => prev.map(u => u.id === currentUser.id ? { ...currentUser, id: u.id } as User : u));
-      alert(`Usuário ${currentUser.name} atualizado com sucesso!`);
-    } else {
-      const newUser: User = {
-        ...currentUser,
-        id: Math.random().toString(36).substr(2, 9),
-        lastAccess: 'Nunca',
-      } as User;
-      setUsers(prev => [newUser, ...prev]);
-      alert(`Usuário ${newUser.name} criado com sucesso!`);
+
+    try {
+      const userData = {
+        name: currentUser.name,
+        role: currentUser.role,
+        email: currentUser.email,
+        cpf: currentUser.cpf,
+        status: currentUser.status,
+        department: currentUser.department,
+        unit_id: currentUser.unitId, // Save as unit_id for DB
+        // If editing, keep ID, else ID is auto-generated by DB (or we can omit it)
+        ...(isEditing && currentUser.id ? { id: currentUser.id } : {})
+      };
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .upsert(userData)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      alert(`Usuário ${currentUser.name} salvo com sucesso!`);
+      fetchUsers(); // Refresh list
+      setIsModalOpen(false);
+
+    } catch (error: any) {
+      console.error('Error saving user:', error);
+      alert('Erro ao salvar usuário: ' + error.message);
     }
-    setIsModalOpen(false);
   };
 
   const handleDelete = () => {
@@ -107,7 +143,7 @@ const UserList: React.FC = () => {
 
   const handleExport = () => {
     const header = ["ID", "Nome", "Email", "Cargo", "Departamento", "Status", "Ultimo Acesso"];
-    const rows = filteredUsers.map(u => 
+    const rows = filteredUsers.map(u =>
       [u.id, u.name, u.email, u.role, u.department, u.status, u.lastAccess].join(",")
     );
     const csvContent = "data:text/csv;charset=utf-8," + [header.join(","), ...rows].join("\n");
@@ -121,12 +157,12 @@ const UserList: React.FC = () => {
   };
 
   // --- Render Helpers ---
-  
+
   const getUnitName = (id?: string) => HEALTH_UNITS.find(u => u.id === id)?.name || 'N/A';
 
   return (
     <div className="space-y-6 animate-fade-in pb-10">
-      
+
       {/* Header Actions */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -134,14 +170,14 @@ const UserList: React.FC = () => {
           <p className="text-gray-500 text-sm">Gerencie o cadastro, acesso e permissões dos profissionais.</p>
         </div>
         <div className="flex gap-2 w-full sm:w-auto">
-           <button 
-             onClick={handleExport}
-             className="flex-1 sm:flex-none justify-center flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium"
-           >
+          <button
+            onClick={handleExport}
+            className="flex-1 sm:flex-none justify-center flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm font-medium"
+          >
             <Icons.Download className="w-4 h-4" />
             Exportar
           </button>
-          <button 
+          <button
             onClick={handleOpenAdd}
             className="flex-1 sm:flex-none justify-center flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-sm text-sm font-medium"
           >
@@ -153,33 +189,33 @@ const UserList: React.FC = () => {
 
       {/* Filters */}
       <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row gap-4 items-center">
-         <div className="relative flex-grow w-full md:w-auto">
-            <span className="absolute left-3 top-2.5 text-gray-400">
-               <Icons.Search className="w-5 h-5" />
-            </span>
-            <input 
-              type="text" 
-              value={searchTerm}
-              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-              placeholder="Buscar por nome ou email..." 
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all"
-            />
-         </div>
-         <select 
-            value={roleFilter}
-            onChange={(e) => { setRoleFilter(e.target.value); setCurrentPage(1); }}
-            className="w-full md:w-48 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm bg-white text-gray-600 transition-all"
-         >
-            {ROLES.map(role => <option key={role} value={role}>{role}</option>)}
-         </select>
-         <select 
-            value={unitFilter}
-            onChange={(e) => { setUnitFilter(e.target.value); setCurrentPage(1); }}
-            className="w-full md:w-48 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm bg-white text-gray-600 transition-all"
-         >
-            <option>Todas as Unidades</option>
-            {HEALTH_UNITS.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
-         </select>
+        <div className="relative flex-grow w-full md:w-auto">
+          <span className="absolute left-3 top-2.5 text-gray-400">
+            <Icons.Search className="w-5 h-5" />
+          </span>
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+            placeholder="Buscar por nome ou email..."
+            className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm transition-all"
+          />
+        </div>
+        <select
+          value={roleFilter}
+          onChange={(e) => { setRoleFilter(e.target.value); setCurrentPage(1); }}
+          className="w-full md:w-48 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm bg-white text-gray-600 transition-all"
+        >
+          {ROLES.map(role => <option key={role} value={role}>{role}</option>)}
+        </select>
+        <select
+          value={unitFilter}
+          onChange={(e) => { setUnitFilter(e.target.value); setCurrentPage(1); }}
+          className="w-full md:w-48 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm bg-white text-gray-600 transition-all"
+        >
+          <option>Todas as Unidades</option>
+          {HEALTH_UNITS.map(u => <option key={u.id} value={u.name}>{u.name}</option>)}
+        </select>
       </div>
 
       {/* Table */}
@@ -215,11 +251,10 @@ const UserList: React.FC = () => {
                       <div className="text-xs text-gray-500">{user.department}</div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${
-                        user.status === 'active' ? 'bg-green-100 text-green-800' :
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${user.status === 'active' ? 'bg-green-100 text-green-800' :
                         user.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
+                          'bg-red-100 text-red-800'
+                        }`}>
                         {user.status === 'active' ? 'Ativo' : user.status === 'inactive' ? 'Inativo' : 'Suspenso'}
                       </span>
                     </td>
@@ -228,15 +263,15 @@ const UserList: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                         <button onClick={() => handleOpenView(user)} className="p-2 text-gray-400 hover:text-blue-600 transition-colors bg-white border border-transparent hover:border-gray-200 rounded-lg" title="Visualizar Detalhes">
-                           <Icons.Eye className="w-4 h-4" />
-                         </button>
-                         <button onClick={() => handleOpenEdit(user)} className="p-2 text-gray-400 hover:text-gray-900 transition-colors bg-white border border-transparent hover:border-gray-200 rounded-lg" title="Editar">
-                           <Icons.Edit className="w-4 h-4" />
-                         </button>
-                         <button onClick={() => handleOpenDelete(user)} className="p-2 text-gray-400 hover:text-red-600 transition-colors bg-white border border-transparent hover:border-gray-200 rounded-lg" title="Excluir">
-                           <Icons.Trash className="w-4 h-4" />
-                         </button>
+                        <button onClick={() => handleOpenView(user)} className="p-2 text-gray-400 hover:text-blue-600 transition-colors bg-white border border-transparent hover:border-gray-200 rounded-lg" title="Visualizar Detalhes">
+                          <Icons.Eye className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleOpenEdit(user)} className="p-2 text-gray-400 hover:text-gray-900 transition-colors bg-white border border-transparent hover:border-gray-200 rounded-lg" title="Editar">
+                          <Icons.Edit className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => handleOpenDelete(user)} className="p-2 text-gray-400 hover:text-red-600 transition-colors bg-white border border-transparent hover:border-gray-200 rounded-lg" title="Excluir">
+                          <Icons.Trash className="w-4 h-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -254,37 +289,37 @@ const UserList: React.FC = () => {
             </tbody>
           </table>
         </div>
-        
+
         {/* Pagination */}
         <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between text-sm text-gray-500 gap-4">
-           <span>Mostrando {Math.min(itemsPerPage * currentPage, filteredUsers.length)} de {filteredUsers.length} usuários</span>
-           <div className="flex gap-2">
-              <button 
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="px-3 py-1 border border-gray-200 bg-white rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Anterior
-              </button>
-              <div className="flex items-center gap-1">
-                {Array.from({ length: totalPages }).map((_, i) => (
-                  <button 
-                    key={i}
-                    onClick={() => setCurrentPage(i + 1)}
-                    className={`w-8 h-8 flex items-center justify-center rounded border ${currentPage === i + 1 ? 'bg-red-600 text-white border-red-600' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
-                  >
-                    {i + 1}
-                  </button>
-                ))}
-              </div>
-              <button 
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages || totalPages === 0}
-                className="px-3 py-1 border border-gray-200 bg-white rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                Próxima
-              </button>
-           </div>
+          <span>Mostrando {Math.min(itemsPerPage * currentPage, filteredUsers.length)} de {filteredUsers.length} usuários</span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1 border border-gray-200 bg-white rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Anterior
+            </button>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: totalPages }).map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentPage(i + 1)}
+                  className={`w-8 h-8 flex items-center justify-center rounded border ${currentPage === i + 1 ? 'bg-red-600 text-white border-red-600' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages || totalPages === 0}
+              className="px-3 py-1 border border-gray-200 bg-white rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Próxima
+            </button>
+          </div>
         </div>
       </div>
 
@@ -300,24 +335,41 @@ const UserList: React.FC = () => {
                 <Icons.XCircle className="w-6 h-6" />
               </button>
             </div>
-            
+
             <form onSubmit={handleSave} className="p-6 overflow-y-auto">
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Nome Completo</label>
-                  <input 
-                    type="text" 
-                    required 
+                  <input
+                    type="text"
+                    required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 outline-none"
                     value={currentUser.name || ''}
                     onChange={e => setCurrentUser({ ...currentUser, name: e.target.value })}
                   />
                 </div>
-                
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">CPF (Somente Números)</label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={11}
+                    placeholder="000.000.000-00"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 outline-none bg-gray-50"
+                    value={currentUser.cpf || ''}
+                    onChange={e => {
+                      const val = e.target.value.replace(/\D/g, '');
+                      setCurrentUser({ ...currentUser, cpf: val });
+                    }}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Este será o login do usuário (senha padrão: admin123 para testes)</p>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Cargo</label>
-                    <select 
+                    <select
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 bg-white outline-none"
                       value={currentUser.role}
                       onChange={e => setCurrentUser({ ...currentUser, role: e.target.value })}
@@ -327,7 +379,7 @@ const UserList: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                    <select 
+                    <select
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 bg-white outline-none"
                       value={currentUser.status}
                       onChange={e => setCurrentUser({ ...currentUser, status: e.target.value as any })}
@@ -341,9 +393,9 @@ const UserList: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Email Institucional</label>
-                  <input 
-                    type="email" 
-                    required 
+                  <input
+                    type="email"
+                    required
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 outline-none"
                     value={currentUser.email || ''}
                     onChange={e => setCurrentUser({ ...currentUser, email: e.target.value })}
@@ -353,8 +405,8 @@ const UserList: React.FC = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Departamento</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 outline-none"
                       value={currentUser.department || ''}
                       onChange={e => setCurrentUser({ ...currentUser, department: e.target.value })}
@@ -362,7 +414,7 @@ const UserList: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Unidade de Lotação</label>
-                    <select 
+                    <select
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 bg-white outline-none"
                       value={currentUser.unitId}
                       onChange={e => setCurrentUser({ ...currentUser, unitId: e.target.value })}
@@ -374,15 +426,15 @@ const UserList: React.FC = () => {
               </div>
 
               <div className="mt-8 flex gap-3">
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setIsModalOpen(false)}
                   className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
                 >
                   Cancelar
                 </button>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className="flex-1 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold shadow-sm transition-colors"
                 >
                   {isEditing ? 'Salvar Alterações' : 'Criar Usuário'}
@@ -411,17 +463,16 @@ const UserList: React.FC = () => {
                 <Icons.XCircle className="w-6 h-6" />
               </button>
             </div>
-            
+
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
                   <p className="text-xs text-gray-500 uppercase font-bold mb-1">Status</p>
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold uppercase ${
-                        currentUser.status === 'active' ? 'bg-green-100 text-green-700' :
-                        currentUser.status === 'inactive' ? 'bg-gray-100 text-gray-700' :
-                        'bg-red-100 text-red-700'
-                      }`}>
-                        {currentUser.status}
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold uppercase ${currentUser.status === 'active' ? 'bg-green-100 text-green-700' :
+                    currentUser.status === 'inactive' ? 'bg-gray-100 text-gray-700' :
+                      'bg-red-100 text-red-700'
+                    }`}>
+                    {currentUser.status}
                   </span>
                 </div>
                 <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
@@ -439,6 +490,14 @@ const UserList: React.FC = () => {
               </div>
 
               <div>
+                <p className="text-xs text-gray-500 uppercase font-bold mb-1">CPF</p>
+                <div className="flex items-center gap-2 text-gray-800">
+                  <Icons.FileText className="w-4 h-4 text-gray-400" />
+                  {currentUser.cpf || 'N/A'}
+                </div>
+              </div>
+
+              <div>
                 <p className="text-xs text-gray-500 uppercase font-bold mb-1">Lotação</p>
                 <div className="flex items-center gap-2 text-gray-800">
                   <Icons.Building className="w-4 h-4 text-gray-400" />
@@ -448,8 +507,8 @@ const UserList: React.FC = () => {
               </div>
 
               <div className="pt-4 border-t border-gray-100">
-                <button 
-                  onClick={() => setIsViewModalOpen(false)} 
+                <button
+                  onClick={() => setIsViewModalOpen(false)}
                   className="w-full py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
                 >
                   Fechar
@@ -472,13 +531,13 @@ const UserList: React.FC = () => {
               Tem certeza que deseja remover <strong>{currentUser.name}</strong>? Essa ação não pode ser desfeita.
             </p>
             <div className="flex gap-3">
-              <button 
+              <button
                 onClick={() => setIsDeleteModalOpen(false)}
                 className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
               >
                 Cancelar
               </button>
-              <button 
+              <button
                 onClick={handleDelete}
                 className="flex-1 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold shadow-sm transition-colors"
               >

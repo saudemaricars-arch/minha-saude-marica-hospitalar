@@ -3,12 +3,13 @@ import { supabase } from './supabaseClient';
 export interface MaternityVisit {
     id: string;
     room: string;
+    bed: string; // Added bed
     mother_name: string;
     baby_name?: string;
     days_post_partum: number;
     type: string; // 'PC', 'PN'
     risk_level: 'Alto' | 'Médio' | 'Baixo';
-    status: 'pendente' | 'realizada';
+    status: 'pendente' | 'realizada' | 'alta';
     alerts?: string[];
     unit_id?: string;
     created_at?: string;

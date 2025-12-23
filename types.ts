@@ -23,6 +23,7 @@ export interface User {
   name: string;
   role: string;
   email: string;
+  cpf?: string;
   status: 'active' | 'inactive' | 'suspended';
   lastAccess: string;
   avatarUrl?: string;

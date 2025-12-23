@@ -252,7 +252,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, currentUnit, onSwitchUn
     // Vaccination
     if (activeModuleId === '19') return <VaccinationModule onBack={() => setActiveModuleId(null)} />;
     // Maternity Visit
-    if (activeModuleId === '20') return <MaternityVisitModule onBack={() => setActiveModuleId(null)} />;
+    if (activeModuleId === '20') return <MaternityVisitModule onBack={() => setActiveModuleId(null)} unitId={currentUnit.id} />;
     // Multidisciplinary Schedule
     if (activeModuleId === '21') return <MultidisciplinaryScheduleModule onBack={() => setActiveModuleId(null)} />;
     // Master Analysis (Global)

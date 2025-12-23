@@ -5,12 +5,15 @@ import { Icons } from '../../../constants';
 
 interface MaternityVisitModuleProps {
     onBack: () => void;
+    unitId: string;
 }
 
-const MaternityVisitModule: React.FC<MaternityVisitModuleProps> = ({ onBack }) => {
+const MaternityVisitModule: React.FC<MaternityVisitModuleProps> = ({ onBack, unitId }) => {
     const [activeTab, setActiveTab] = useState<'dashboard' | 'visits' | 'schedule'>('visits');
     const [isVisitModalOpen, setIsVisitModalOpen] = useState(false);
+    const [isNewAdmissionModalOpen, setIsNewAdmissionModalOpen] = useState(false); // New state
     const [visits, setVisits] = useState<MaternityVisit[]>([]);
+    const [newAdmission, setNewAdmission] = useState<Partial<MaternityVisit>>({}); // New state for form
     const [selectedVisit, setSelectedVisit] = useState<MaternityVisit | null>(null);
 
     // Fetch Data
@@ -35,6 +38,35 @@ const MaternityVisitModule: React.FC<MaternityVisitModuleProps> = ({ onBack }) =
     const handleOpenVisit = (visit: MaternityVisit) => {
         setSelectedVisit(visit);
         setIsVisitModalOpen(true);
+    };
+
+    const handleCreateAdmission = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            if (!newAdmission.mother_name || !newAdmission.room) {
+                alert('Nome da mãe e leito são obrigatórios');
+                return;
+            }
+
+            await maternityService.createVisit({
+                mother_name: newAdmission.mother_name,
+                baby_name: newAdmission.baby_name || 'RN',
+                room: newAdmission.room,
+                bed: newAdmission.bed || 'A',
+                days_post_partum: Number(newAdmission.days_post_partum) || 0,
+                type: newAdmission.type || 'Parto Normal',
+                risk_level: ((newAdmission.risk_level as any) || 'Baixo'),
+                unit_id: unitId // Use prop
+            });
+
+            alert('Admissão realizada com sucesso!');
+            setIsNewAdmissionModalOpen(false);
+            setNewAdmission({});
+            loadVisits();
+        } catch (error: any) {
+            console.error('Error creating admission:', error);
+            alert('Erro ao criar admissão: ' + error.message);
+        }
     };
 
     const renderContent = () => {
@@ -233,6 +265,15 @@ const MaternityVisitModule: React.FC<MaternityVisitModuleProps> = ({ onBack }) =
                         >
                             <Icons.Calendar className="w-4 h-4" /> Agenda
                         </button>
+
+                        <div className="w-px h-6 bg-gray-200 mx-1"></div>
+
+                        <button
+                            onClick={() => setIsNewAdmissionModalOpen(true)}
+                            className="px-4 py-2 bg-rose-600 text-white rounded-md text-sm font-bold shadow hover:bg-rose-700 transition-colors flex items-center gap-2 whitespace-nowrap"
+                        >
+                            <Icons.PlusCircle className="w-4 h-4" /> Nova Admissão
+                        </button>
                     </div>
                 </div>
 
@@ -383,6 +424,109 @@ const MaternityVisitModule: React.FC<MaternityVisitModuleProps> = ({ onBack }) =
                                     Salvar Registro & Concluir
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* New Admission Modal */}
+                {isNewAdmissionModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+                        <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden">
+                            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                                <h3 className="font-bold text-gray-800">Nova Admissão Maternidade</h3>
+                                <button onClick={() => setIsNewAdmissionModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                                    <Icons.XCircle className="w-6 h-6" />
+                                </button>
+                            </div>
+
+                            <form onSubmit={handleCreateAdmission} className="p-6 space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Nome da Mãe</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 outline-none"
+                                        value={newAdmission.mother_name || ''}
+                                        onChange={e => setNewAdmission({ ...newAdmission, mother_name: e.target.value })}
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Bebê (Opcional)</label>
+                                        <input
+                                            type="text"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 outline-none"
+                                            placeholder="RN de..."
+                                            value={newAdmission.baby_name || ''}
+                                            onChange={e => setNewAdmission({ ...newAdmission, baby_name: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Parto</label>
+                                        <select
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 outline-none bg-white"
+                                            value={newAdmission.type || 'Parto Normal'}
+                                            onChange={e => setNewAdmission({ ...newAdmission, type: e.target.value })}
+                                        >
+                                            <option>Parto Normal</option>
+                                            <option>Cesariana</option>
+                                            <option>Aborto</option>
+                                            <option>Outros</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Leito/Quarto</label>
+                                        <input
+                                            type="text"
+                                            required
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 outline-none"
+                                            value={newAdmission.room || ''}
+                                            onChange={e => setNewAdmission({ ...newAdmission, room: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Dias Pós-Parto</label>
+                                        <input
+                                            type="number"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 outline-none"
+                                            value={newAdmission.days_post_partum || ''}
+                                            onChange={e => setNewAdmission({ ...newAdmission, days_post_partum: Number(e.target.value) })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Risco</label>
+                                        <select
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 outline-none bg-white"
+                                            value={newAdmission.risk_level || 'Baixo'}
+                                            onChange={e => setNewAdmission({ ...newAdmission, risk_level: e.target.value as any })}
+                                        >
+                                            <option>Baixo</option>
+                                            <option>Médio</option>
+                                            <option>Alto</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="pt-4 flex gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsNewAdmissionModalOpen(false)}
+                                        className="flex-1 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+                                    >
+                                        Cancelar
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="flex-1 py-2.5 bg-rose-600 text-white rounded-lg hover:bg-rose-700 font-bold shadow-sm transition-colors"
+                                    >
+                                        Registrar Admissão
+                                    </button>
+                                </div>
+                            </form>
                         </div>
                     </div>
                 )}

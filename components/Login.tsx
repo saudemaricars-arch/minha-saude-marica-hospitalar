@@ -60,7 +60,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, onForgotPassword }) => {
       const { data: profiles, error: dbError } = await supabase
         .from('profiles')
         .select('*')
-        .or(`email.eq.${username},name.eq.${username}`);
+        .or(`email.eq.${username},name.eq.${username},cpf.eq.${username}`);
 
       if (dbError) throw dbError;
 

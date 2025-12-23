@@ -13,6 +13,15 @@ export interface VaccinationPatient {
     records?: VaccinationRecord[];
 }
 
+export interface Vaccine {
+    id: string;
+    name: string;
+    batch: string;
+    expiration_date: string;
+    stock_level: number;
+    status: 'Disponível' | 'Baixo' | 'Esgotado' | 'Vencido';
+}
+
 export interface VaccinationRecord {
     id: string;
     patient_id: string;
@@ -61,5 +70,40 @@ export const vaccinationService = {
 
         if (error) throw error;
         return data as VaccinationRecord;
+    },
+
+    // --- Stock Management ---
+
+    async fetchVaccines() {
+        const { data, error } = await supabase
+            .from('vaccines')
+            .select('*')
+            .order('name');
+
+        if (error) throw error;
+        return data as Vaccine[];
+    },
+
+    async addVaccine(vaccine: Omit<Vaccine, 'id' | 'status' | 'created_at'>) {
+        const { data, error } = await supabase
+            .from('vaccines')
+            .insert([vaccine])
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data as Vaccine;
+    },
+
+    async updateStock(id: string, newLevel: number) {
+        const { data, error } = await supabase
+            .from('vaccines')
+            .update({ stock_level: newLevel })
+            .eq('id', id)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data as Vaccine;
     }
 };
